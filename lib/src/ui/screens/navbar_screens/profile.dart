@@ -1,5 +1,6 @@
 import 'package:davlat/src/exports.dart';
 import 'package:davlat/src/ui/screens/history.dart';
+import 'package:davlat/src/ui/screens/obratini_svyaz.dart';
 import 'package:davlat/src/ui/screens/profile_editscreen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -156,17 +157,9 @@ class _ProfileState extends State<Profile> {
                       ),
                       const Spacer(),
                       IconButton(
-                        icon: const Icon(
-                          Icons.edit,
-                          color: Colors.white,
-                        ),
+                        icon: Image.asset('assets/icons/in.png'),
                         onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const ProfileEditscreen(),
-                            ),
-                          );
+
                         },
                       ),
                     ],
@@ -349,7 +342,12 @@ class _ProfileState extends State<Profile> {
                         height: 16,
                       ),
                       onTap: () {
-                        // Навигация к странице обратной связи
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const FeedbackPage(),
+                          ),
+                        );
                       },
                     ),
                     const Divider(color: Colors.grey, height: 1),

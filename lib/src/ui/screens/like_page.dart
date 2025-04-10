@@ -121,10 +121,12 @@ class _LikePageState extends State<LikePage> {
                       color: Colors.red,
                       alignment: Alignment.centerRight,
                       padding: const EdgeInsets.only(right: 20),
-                      child: const Icon(Icons.delete, color: Colors.white, size: 30),
+                      child: const Icon(Icons.delete,
+                          color: Colors.white, size: 30),
                     ),
                     child: Card(
-                      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      margin: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
                       child: ListTile(
                         contentPadding: const EdgeInsets.all(8),
                         leading: Image.asset(
@@ -135,7 +137,8 @@ class _LikePageState extends State<LikePage> {
                         title: Text(
                           shoeName,
                           style: GoogleFonts.oswald(
-                            textStyle: const TextStyle(fontWeight: FontWeight.bold),
+                            textStyle:
+                                const TextStyle(fontWeight: FontWeight.bold),
                           ),
                         ),
                       ),
