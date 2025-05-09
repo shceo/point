@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -62,6 +63,10 @@ class _FeedbackPageState extends State<FeedbackPage> {
     final uri = Uri.parse('https://t.me/syodamn');
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(FirebaseAuth.instance.currentUser!.uid)
+          .set({'loyalty': FieldValue.increment(5)}, SetOptions(merge: true));
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Не удалось открыть Telegram')),

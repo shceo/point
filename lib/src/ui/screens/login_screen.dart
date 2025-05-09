@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:davlat/src/exports.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -129,6 +130,11 @@ class LoginPage extends StatelessWidget {
 
       // Обновляем профиль пользователя с именем и фамилией
       await userCredential.user?.updateDisplayName('$firstName $lastName');
+// Задаём стартовый баланс бонусов за регистрацию
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userCredential.user!.uid)
+          .set({'loyalty': 5}, SetOptions(merge: true));
 
       showToast('Регистрация успешна');
       Navigator.push(
@@ -214,7 +220,10 @@ class LoginScreen extends StatelessWidget {
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(4)),
               ),
-              child: const Text('Войти', style: TextStyle(color: Colors.white),),
+              child: const Text(
+                'Войти',
+                style: TextStyle(color: Colors.white),
+              ),
             ),
           ],
         ),

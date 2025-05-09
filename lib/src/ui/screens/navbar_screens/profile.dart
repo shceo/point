@@ -5,6 +5,7 @@ import 'package:davlat/src/ui/screens/profile_editscreen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 // Предполагается, что LoginPage и LikePage существуют и импортированы
 // import 'package:davlat/src/ui/screens/login_page.dart';
@@ -19,6 +20,46 @@ class Profile extends StatefulWidget {
 
 class _ProfileState extends State<Profile> {
   bool _dialogShown = false;
+  int _loyalty = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLoyalty();
+  }
+
+  Future<void> _loadLoyalty() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    const int maxRetries = 3;
+    int attempt = 0;
+    while (true) {
+      try {
+        final doc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+        // проверяем, что State всё ещё в дереве
+        if (!mounted) return;
+        setState(() {
+          _loyalty = (doc.data()?['loyalty'] as int?) ?? 0;
+        });
+        return;
+      } on FirebaseException catch (e) {
+        if (e.code == 'unavailable' && attempt < maxRetries) {
+          attempt++;
+          await Future.delayed(Duration(seconds: 1 << attempt));
+          continue;
+        }
+        // Если не mounted или исчерпали попытки
+        if (!mounted) return;
+        showToast('Не удалось загрузить бонусы. Проверьте соединение.');
+        setState(() => _loyalty = 0);
+        return;
+      }
+    }
+  }
 
   @override
   void didChangeDependencies() {
@@ -28,6 +69,7 @@ class _ProfileState extends State<Profile> {
     if (user == null && !_dialogShown) {
       _dialogShown = true;
       Future.delayed(Duration.zero, () {
+        if (!mounted) return;
         showDialog(
           context: context,
           barrierDismissible: false,
@@ -85,8 +127,23 @@ class _ProfileState extends State<Profile> {
     );
     if (shouldSignOut == true) {
       await FirebaseAuth.instance.signOut();
-      setState(() {}); // Обновляем экран после выхода
+      if (!mounted) return;
+      setState(() {}); // перерисуем после выхода
     }
+  }
+
+  Future<void> _addLoyaltyPoints(int points) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final ref = FirebaseFirestore.instance.collection('users').doc(user.uid);
+    await ref.set(
+      {'loyalty': FieldValue.increment(points)},
+      SetOptions(merge: true),
+    );
+    if (!mounted) return;
+    setState(() {
+      _loyalty += points;
+    });
   }
 
   @override
@@ -153,14 +210,22 @@ class _ProfileState extends State<Profile> {
                               ),
                             ),
                           ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Бонусы за лояльность: $_loyalty',
+                            style: GoogleFonts.oswald(
+                              textStyle: const TextStyle(
+                                fontSize: 14,
+                                color: Colors.white70,
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                       const Spacer(),
                       IconButton(
                         icon: Image.asset('assets/icons/in.png'),
-                        onPressed: () {
-
-                        },
+                        onPressed: () {},
                       ),
                     ],
                   ),
@@ -284,7 +349,7 @@ class _ProfileState extends State<Profile> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => OrderHis(orders: myOrders),
+                            builder: (context) => OrderHis(),
                           ),
                         );
                       },
@@ -342,10 +407,10 @@ class _ProfileState extends State<Profile> {
                         height: 16,
                       ),
                       onTap: () {
-                      Navigator.push(
+                        Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) =>  FeedbackPage(),
+                            builder: (context) => FeedbackPage(),
                           ),
                         );
                       },

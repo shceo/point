@@ -2,30 +2,32 @@
 
 import 'dart:convert';
 import 'dart:developer';
-
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:davlat/src/data/db/database.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
-/// Вынесенный репозиторий для работы с API ЮKassa
+/// Репозиторий для создания платежа на YooKassa
 class CassaRepo {
-  // TODO: заполните значениями вашего магазина
   static const String shopId = '1054000';
-  static const String secretKey = 'test_wdpD9DOXt65p1Tt02FK9LjGLyjbxz-19mYilgdc8Sj4';
+  static const String secretKey =
+      'test_wdpD9DOXt65p1Tt02FK9LjGLyjbxz-19mYilgdc8Sj4';
 
-  /// Создаёт платёж на сумму [amount] и сразу открывает страницу подтверждения
-  static Future<void> createPayment(double amount) async {
-    const url = 'https://api.yookassa.ru/v3/payments';
-    final idempotenceKey = const Uuid().v4();
+  /// Инициализируем платёж и возвращаем URL для WebView
+  static Future<String> createPaymentUrl(double amount) async {
+    const api = 'https://api.yookassa.ru/v3/payments';
+    final idKey = const Uuid().v4();
 
-    final response = await http.post(
-      Uri.parse(url),
+    final resp = await http.post(
+      Uri.parse(api),
       headers: {
         'Authorization':
             'Basic ' + base64Encode(utf8.encode('$shopId:$secretKey')),
         'Content-Type': 'application/json',
-        'Idempotence-Key': idempotenceKey,
+        'Idempotence-Key': idKey,
       },
       body: jsonEncode({
         'amount': {
@@ -35,77 +37,117 @@ class CassaRepo {
         'payment_method_data': {'type': 'bank_card'},
         'confirmation': {
           'type': 'redirect',
-          // deep-link вашего приложения
+          // YooKassa вставит этот return_url в кнопку "вернуться назад"
           'return_url': 'myapp://payment-callback',
         },
         'capture': true,
       }),
     );
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      final confirmationUrl = data['confirmation']['confirmation_url'];
-      final paymentId = data['id'];
-
-      log('Платёж создан, id=$paymentId');
-
-      // Открываем страницу подтверждения в браузере/приложении
-      final uri = Uri.parse(confirmationUrl);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } else {
-        log('Не удалось открыть $confirmationUrl');
-      }
-
-      // Здесь вы можете, при необходимости, запустить опрос статуса:
-      // await checkPaymentStatus(paymentId);
-    } else {
-      log('Ошибка создания платежа: ${response.statusCode}');
-      log('Тело ответа: ${response.body}');
-      throw Exception('Не удалось создать платёж');
+    if (resp.statusCode != 200) {
+      log('YooKassa error: ${resp.statusCode}\n${resp.body}');
+      throw Exception('Не удалось инициализировать платёж');
     }
-  }
 
-  /// Опционально: проверка статуса по [paymentId]
-  static Future<String> checkPaymentStatus(String paymentId) async {
-    final url = 'https://api.yookassa.ru/v3/payments/$paymentId';
-    final response = await http.get(
-      Uri.parse(url),
-      headers: {
-        'Authorization':
-            'Basic ' + base64Encode(utf8.encode('$shopId:$secretKey')),
-        'Content-Type': 'application/json',
-      },
-    );
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      final status = data['status'] as String;
-      log('Статус платежа $paymentId: $status');
-      return status;
-    } else {
-      log('Ошибка статуса: ${response.statusCode}');
-      throw Exception('Не удалось получить статус платежа');
-    }
+    final data = jsonDecode(resp.body);
+    return data['confirmation']['confirmation_url'] as String;
   }
 }
 
-/// Экран выбора способа оплаты и инициации платежа
-class PaymentScreen extends StatelessWidget {
+/// Экран, внутри которого мы запустим WebView и дождёмся диплинка
+class PaymentScreen extends StatefulWidget {
   final double totalAmount;
-
   const PaymentScreen({Key? key, required this.totalAmount}) : super(key: key);
+  @override
+  State<PaymentScreen> createState() => _PaymentScreenState();
+}
 
-  void _showMessage(BuildContext ctx, String title, String msg) {
+class _PaymentScreenState extends State<PaymentScreen> {
+  late final WebViewController _controller;
+  String? _url;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _startPayment();
+  }
+
+  Future<void> _startPayment() async {
+    try {
+      final url = await CassaRepo.createPaymentUrl(widget.totalAmount);
+      _controller = WebViewController()
+        ..setJavaScriptMode(JavaScriptMode.unrestricted)
+        ..setNavigationDelegate(
+          NavigationDelegate(
+            onNavigationRequest: (req) {
+              ;
+
+              // ловим диплинк
+              if (req.url.startsWith('myapp://payment-callback')) {
+                FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(FirebaseAuth.instance.currentUser!.uid)
+                    .set({
+                  'loyalty': FieldValue.increment(5)
+                }, SetOptions(merge: true)).catchError(
+                        (e) => debugPrint('Ошибка бонусов: $e'));
+                _showSuccess();
+                return NavigationDecision.prevent;
+              }
+              return NavigationDecision.navigate;
+            },
+            onPageStarted: (_) => setState(() => _loading = true),
+            onPageFinished: (_) => setState(() => _loading = false),
+          ),
+        )
+        ..loadRequest(Uri.parse(url));
+
+      setState(() => _url = url);
+    } catch (e) {
+      _showError('Ошибка', e.toString());
+    }
+  }
+
+  Future<void> _showSuccess() async {
+    // 1) Считаем всё, что сейчас в корзине
+    final db = DatabaseService();
+    final basket = await db.getBasketItems();
+    for (var item in basket) {
+      await db.addOrder(item);
+    }
+    await db.clearBasket();
     showDialog(
-      context: ctx,
+      context: context,
+      barrierDismissible: false,
       builder: (_) => AlertDialog(
-        title: Text(title),
-        content: Text(msg),
+        title: const Text('Успех'),
+        content: const Text('Оплата успешно завершена!',
+            textAlign: TextAlign.center),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text("OK"),
+            onPressed: () {
+              Navigator.of(context)
+                ..pop() // закрыть диалог
+                ..pop(); // вернуться из PaymentScreen
+            },
+            child: const Text('OK'),
           ),
+        ],
+      ),
+    );
+  }
+
+  void _showError(String title, String msg) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(title),
+        content: Text(msg, textAlign: TextAlign.center),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK')),
         ],
       ),
     );
@@ -113,74 +155,16 @@ class PaymentScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (_url == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Выберите способ оплаты'),
-        centerTitle: true,
-        backgroundColor: Colors.white70,
-        foregroundColor: Colors.black,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            Text(
-              'Сумма к оплате: ${totalAmount.toStringAsFixed(2)} ₽',
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 20),
-            // Банковская карта:
-            _buildPaymentOptionCard(
-              context,
-              icon: Icons.credit_card,
-              title: 'Банковская карта',
-              description: 'Оплата картами российских банков',
-              onTap: () async {
-                try {
-                  await CassaRepo.createPayment(totalAmount);
-                } catch (e) {
-                  _showMessage(context, 'Ошибка', e.toString());
-                }
-              },
-            ),
-            const SizedBox(height: 15),
-            // Другие способы:
-            _buildPaymentOptionCard(
-              context,
-              icon: Icons.account_balance_wallet,
-              title: 'Другие способы',
-              description: 'Электронные кошельки, криптовалюта и т.д.',
-              onTap: () {
-                _showMessage(context, 'Информация',
-                    'Другие способы оплат пока недоступны.');
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPaymentOptionCard(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    required String description,
-    required VoidCallback onTap,
-  }) {
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-      elevation: 3,
-      child: ListTile(
-        contentPadding: const EdgeInsets.all(15),
-        leading: Icon(icon, size: 40, color: Colors.black),
-        title: Text(
-          title,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-        ),
-        subtitle: Text(description),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 18),
-        onTap: onTap,
+      appBar: AppBar(title: const Text('Оплата')),
+      body: Stack(
+        children: [
+          WebViewWidget(controller: _controller),
+          if (_loading) const Center(child: CircularProgressIndicator()),
+        ],
       ),
     );
   }
