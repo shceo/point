@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:davlat/src/exports.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/material.dart';
@@ -49,7 +51,19 @@ class _HomepageState extends State<Homepage> {
   @override
   void initState() {
     super.initState();
+    _assignRandomDiscounts();
     _loadFavorites();
+  }
+
+  void _assignRandomDiscounts() {
+    final rand = Random();
+    for (var tab in _products) {
+      for (var product in tab) {
+        if (rand.nextBool()) {
+          product['discount'] = 20;
+        }
+      }
+    }
   }
 
   /// Загружает список избранного из БД и обновляет favoriteProducts,
@@ -232,8 +246,10 @@ class _HomepageState extends State<Homepage> {
                       ),
                       // Кнопка в нижней части
                       Align(
-                        alignment: Alignment.bottomRight,
-                        child: Image.asset('assets/images/shoe.png',)),
+                          alignment: Alignment.bottomRight,
+                          child: Image.asset(
+                            'assets/images/shoe.png',
+                          )),
                     ],
                   ),
                 ),

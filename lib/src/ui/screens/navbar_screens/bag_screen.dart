@@ -13,6 +13,8 @@ class BagScreen extends StatefulWidget {
 class _BagScreenState extends State<BagScreen> {
   final DatabaseService _databaseService = DatabaseService();
   List<Map<String, dynamic>> bagItems = [];
+  final List<double> _femaleSizes = [35, 36, 37, 38, 39, 40];
+  final List<double> _maleSizes = [40, 41, 42, 43, 44, 45];
 
   @override
   void initState() {
@@ -23,7 +25,16 @@ class _BagScreenState extends State<BagScreen> {
   Future<void> _loadBagItems() async {
     final items = await _databaseService.getBasketItems();
     setState(() {
-      bagItems = items.map((item) => Map<String, dynamic>.from(item)).toList();
+      bagItems = items.map((item) {
+        final m = Map<String, dynamic>.from(item);
+        // Если в базе size хранится строкой — парсим её в double
+        if (m.containsKey('size') && m['size'] != null) {
+          m['size'] = (m['size'] is double)
+              ? m['size']
+              : double.tryParse(m['size'].toString());
+        }
+        return m;
+      }).toList();
     });
   }
 
@@ -64,52 +75,104 @@ class _BagScreenState extends State<BagScreen> {
     });
   }
 
-  /// Показывает диалог выбора параметров (в данном случае — пола)
   Future<void> _showParameterDialog(int index) async {
-    String? selectedGender = bagItems[index]['gender'];
-    await showDialog(
+    // 1) Выбор пола
+    final gender = await showDialog<String>(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text("Выберите пол"),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              RadioListTile<String>(
-                title: const Text("Мужской"),
-                value: "Мужской",
-                groupValue: selectedGender,
-                onChanged: (String? value) {
-                  setState(() {
-                    selectedGender = value;
-                  });
-                  Navigator.of(context).pop();
-                },
-              ),
-              RadioListTile<String>(
-                title: const Text("Женский"),
-                value: "Женский",
-                groupValue: selectedGender,
-                onChanged: (String? value) {
-                  setState(() {
-                    selectedGender = value;
-                  });
-                  Navigator.of(context).pop();
-                },
-              ),
-            ],
-          ),
-        );
-      },
+      builder: (ctx) => AlertDialog(
+        title: const Text("Выберите пол"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            RadioListTile<String>(
+              title: const Text("Мужской"),
+              value: "Мужской",
+              groupValue: bagItems[index]['gender'] as String?,
+              onChanged: (v) => Navigator.pop(ctx, v),
+            ),
+            RadioListTile<String>(
+              title: const Text("Женский"),
+              value: "Женский",
+              groupValue: bagItems[index]['gender'] as String?,
+              onChanged: (v) => Navigator.pop(ctx, v),
+            ),
+          ],
+        ),
+      ),
     );
-    if (selectedGender != null) {
-      setState(() {
-        bagItems[index]['gender'] = selectedGender;
-        // При необходимости можно сохранить параметры в БД:
-        // _databaseService.updateBasketItemParameter(bagItems[index]['id'], 'gender', selectedGender);
-      });
-    }
+    if (gender == null) return;
+    setState(() => bagItems[index]['gender'] = gender);
+
+    // 2) Выбор размера в зависимости от пола
+    final sizes = gender == "Женский" ? _femaleSizes : _maleSizes;
+    final currentSize = bagItems[index]['size'] as double?;
+    final size = await showDialog<double>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Выберите размер"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: sizes.map((s) {
+            return RadioListTile<double>(
+              title: Text(s.toString()),
+              value: s,
+              groupValue: currentSize,
+              onChanged: (v) => Navigator.pop(ctx, v),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+    if (size == null) return;
+    setState(() => bagItems[index]['size'] = size);
   }
+
+  /// Показывает диалог выбора параметров (в данном случае — пола)
+  // Future<void> _showParameterDialog(int index) async {
+  //   String? selectedGender = bagItems[index]['gender'];
+  //   await showDialog(
+  //     context: context,
+  //     builder: (BuildContext context) {
+  //       return AlertDialog(
+  //         title: const Text("Выберите пол"),
+  //         content: Column(
+  //           mainAxisSize: MainAxisSize.min,
+  //           children: [
+  //             RadioListTile<String>(
+  //               title: const Text("Мужской"),
+  //               value: "Мужской",
+  //               groupValue: selectedGender,
+  //               onChanged: (String? value) {
+  //                 setState(() {
+  //                   selectedGender = value;
+  //                 });
+  //                 Navigator.of(context).pop();
+  //               },
+  //             ),
+  //             RadioListTile<String>(
+  //               title: const Text("Женский"),
+  //               value: "Женский",
+  //               groupValue: selectedGender,
+  //               onChanged: (String? value) {
+  //                 setState(() {
+  //                   selectedGender = value;
+  //                 });
+  //                 Navigator.of(context).pop();
+  //               },
+  //             ),
+  //           ],
+  //         ),
+  //       );
+  //     },
+  //   );
+  //   if (selectedGender != null) {
+  //     setState(() {
+  //       bagItems[index]['gender'] = selectedGender;
+  //       // При необходимости можно сохранить параметры в БД:
+  //       // _databaseService.updateBasketItemParameter(bagItems[index]['id'], 'gender', selectedGender);
+  //     });
+  //   }
+  // }
 
   /// Проверяет, что у всех товаров выбран пол, иначе выводит предупреждение
   void _onPayPressed() {
@@ -141,7 +204,9 @@ class _BagScreenState extends State<BagScreen> {
     } else {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => PaymentScreen(totalAmount: _calculateTotal())),
+        MaterialPageRoute(
+            builder: (context) =>
+                PaymentScreen(totalAmount: _calculateTotal())),
       );
     }
   }

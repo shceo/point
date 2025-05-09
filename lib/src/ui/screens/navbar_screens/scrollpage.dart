@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:davlat/src/exports.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:davlat/src/data/db/database.dart';
@@ -51,7 +52,8 @@ class _ScrollPageState extends State<ScrollPage> {
           // Если контроллер уже существует, освобождаем его
           _pageController.dispose();
           // Создаем новый контроллер с начальной страницей для бесконечного скролла
-          _pageController = PageController(initialPage: scrollData.length * 1000);
+          _pageController =
+              PageController(initialPage: scrollData.length * 1000);
         }
       });
     } catch (e) {
@@ -85,7 +87,8 @@ class _ScrollPageState extends State<ScrollPage> {
     }
   }
 
-  Future<void> _addToBasket(String imagePath, String shoeName, String priceStr) async {
+  Future<void> _addToBasket(
+      String imagePath, String shoeName, String priceStr) async {
     // Удаляем все символы, кроме цифр и точки, чтобы корректно распарсить цену.
     final cleanPriceStr = priceStr.replaceAll(RegExp(r'[^0-9.]'), '');
     final price = double.tryParse(cleanPriceStr) ?? 0.0;
@@ -120,11 +123,27 @@ class _ScrollPageState extends State<ScrollPage> {
           final shoeName = scrollData[currentIndex]['name']!;
           final price = scrollData[currentIndex]['price']!;
           final isLiked = likedImages.contains(imagePath);
-
+          final priceStr = scrollData[currentIndex]['price']!;
+          final cleanPriceStr = priceStr.replaceAll(RegExp(r'[^0-9.]'), '');
+          final priceValue = double.tryParse(cleanPriceStr) ?? 0.0;
+          final product = <String, dynamic>{
+            'id': shoeName,
+            'name': shoeName,
+            'price': priceValue,
+            'image': imagePath,
+            if (scrollData[currentIndex].containsKey('discount'))
+              'discount': scrollData[currentIndex]['discount'],
+          };
           return Stack(
             children: [
               // Обработчик двойного клика на изображение
               GestureDetector(
+                onTap: () async {
+                  Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => CardScreen(product: product)));
+                },
                 onDoubleTap: () => _toggleLike(imagePath),
                 child: Center(
                   child: Image.asset(

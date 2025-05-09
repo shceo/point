@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class FeedbackPage extends StatefulWidget {
-  const FeedbackPage({super.key});
-
   @override
-  // ignore: library_private_types_in_public_api
   _FeedbackPageState createState() => _FeedbackPageState();
 }
 
@@ -14,97 +12,121 @@ class _FeedbackPageState extends State<FeedbackPage> {
   final _messageController = TextEditingController();
   final _defaultEmail = 'ozonkee@gmail.com';
 
-  Future<void> _sendFeedback() async {
-    // Пример отправки сообщения на email через url scheme (будет открывать почтовый клиент)
-    final emailUrl = Uri.parse(
-        'mailto:$_defaultEmail?subject=Feedback&body=${_messageController.text}');
-    // ignore: deprecated_member_use
-    if (await canLaunch(emailUrl.toString())) {
-      await launch(emailUrl.toString());
+  User? user;
+
+  @override
+  void initState() {
+    super.initState();
+    _getCurrentUser();
+  }
+
+  Future<void> _getCurrentUser() async {
+    user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      _emailController.text = user!.email ?? '';
     } else {
-      throw 'Could not send email';
+      _emailController.text = _defaultEmail;
+    }
+    setState(() {});
+  }
+
+  Future<void> _sendFeedback() async {
+    final email = _emailController.text.trim();
+    final message = _messageController.text.trim();
+    if (message.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Введите сообщение перед отправкой')),
+      );
+      return;
+    }
+
+    final uri = Uri(
+      scheme: 'mailto',
+      path: _defaultEmail,
+      queryParameters: {
+        'subject': 'Feedback from $email',
+        'body': message,
+      },
+    );
+
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Не удалось открыть почтовое приложение')),
+      );
     }
   }
 
   Future<void> _openTelegram() async {
-    const telegramUrl = 'https://t.me/syodamn';
-    if (await canLaunch(telegramUrl)) {
-      await launch(telegramUrl);
+    final uri = Uri.parse('https://t.me/syodamn');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
     } else {
-      throw 'Could not open Telegram';
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Не удалось открыть Telegram')),
+      );
     }
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _messageController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Обратная связь'),
-      ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Введите ваш email:',
-                style: TextStyle(fontSize: 18),
+      appBar: AppBar(title: const Text('Обратная связь')),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Ваш email:', style: TextStyle(fontSize: 16)),
+            const SizedBox(height: 4),
+            TextField(
+              controller: _emailController,
+              readOnly: true,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
               ),
-              TextField(
-                controller: _emailController,
-                decoration: InputDecoration(
-                  hintText: 'Ваш email',
-                  border: const OutlineInputBorder(),
-                  filled: true,
-                  fillColor: Colors.grey[200],
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Ваше сообщение:',
-                style: TextStyle(fontSize: 18),
-              ),
-              TextField(
+            ),
+            const SizedBox(height: 16),
+            const Text('Сообщение:', style: TextStyle(fontSize: 16)),
+            const SizedBox(height: 4),
+            Expanded(
+              child: TextField(
                 controller: _messageController,
-                maxLines: 5,
-                decoration: InputDecoration(
+                maxLines: null,
+                expands: true,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
                   hintText: 'Введите ваше сообщение...',
-                  border: const OutlineInputBorder(),
-                  filled: true,
-                  fillColor: Colors.grey[200],
                 ),
               ),
-              const SizedBox(height: 20),
-              Center(
-                child: ElevatedButton(
-                  onPressed: _sendFeedback,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.black,
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 18, horizontal: 25),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                  ),
-                  child: const Text(
-                    'Отправить',
-                    style: TextStyle(color: Colors.white),
-                  ),
+            ),
+            const SizedBox(height: 16),
+            Center(
+              child: ElevatedButton(
+                onPressed: _sendFeedback,
+                child: const Text('Отправить'),
+                style: ElevatedButton.styleFrom(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
                 ),
               ),
-              const SizedBox(height: 20),
-              Center(
-                child: TextButton(
-                  onPressed: _openTelegram,
-                  child: const Text(
-                    'Остались вопросы? Задавайте тут!',
-                    style: TextStyle(color: Colors.blue),
-                  ),
-                ),
+            ),
+            const SizedBox(height: 8),
+            Center(
+              child: TextButton(
+                onPressed: _openTelegram,
+                child: const Text('Остались вопросы? Telegram'),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

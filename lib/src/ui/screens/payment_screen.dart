@@ -1,16 +1,106 @@
-import 'package:davlat/src/data/payment.dart';
-import 'package:flutter/material.dart';
+// lib/src/ui/screens/payment_screen.dart
 
+import 'dart:convert';
+import 'dart:developer';
+
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:uuid/uuid.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+/// Вынесенный репозиторий для работы с API ЮKassa
+class CassaRepo {
+  // TODO: заполните значениями вашего магазина
+  static const String shopId = '1054000';
+  static const String secretKey = 'test_wdpD9DOXt65p1Tt02FK9LjGLyjbxz-19mYilgdc8Sj4';
+
+  /// Создаёт платёж на сумму [amount] и сразу открывает страницу подтверждения
+  static Future<void> createPayment(double amount) async {
+    const url = 'https://api.yookassa.ru/v3/payments';
+    final idempotenceKey = const Uuid().v4();
+
+    final response = await http.post(
+      Uri.parse(url),
+      headers: {
+        'Authorization':
+            'Basic ' + base64Encode(utf8.encode('$shopId:$secretKey')),
+        'Content-Type': 'application/json',
+        'Idempotence-Key': idempotenceKey,
+      },
+      body: jsonEncode({
+        'amount': {
+          'value': amount.toStringAsFixed(2),
+          'currency': 'RUB',
+        },
+        'payment_method_data': {'type': 'bank_card'},
+        'confirmation': {
+          'type': 'redirect',
+          // deep-link вашего приложения
+          'return_url': 'myapp://payment-callback',
+        },
+        'capture': true,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      final confirmationUrl = data['confirmation']['confirmation_url'];
+      final paymentId = data['id'];
+
+      log('Платёж создан, id=$paymentId');
+
+      // Открываем страницу подтверждения в браузере/приложении
+      final uri = Uri.parse(confirmationUrl);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        log('Не удалось открыть $confirmationUrl');
+      }
+
+      // Здесь вы можете, при необходимости, запустить опрос статуса:
+      // await checkPaymentStatus(paymentId);
+    } else {
+      log('Ошибка создания платежа: ${response.statusCode}');
+      log('Тело ответа: ${response.body}');
+      throw Exception('Не удалось создать платёж');
+    }
+  }
+
+  /// Опционально: проверка статуса по [paymentId]
+  static Future<String> checkPaymentStatus(String paymentId) async {
+    final url = 'https://api.yookassa.ru/v3/payments/$paymentId';
+    final response = await http.get(
+      Uri.parse(url),
+      headers: {
+        'Authorization':
+            'Basic ' + base64Encode(utf8.encode('$shopId:$secretKey')),
+        'Content-Type': 'application/json',
+      },
+    );
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      final status = data['status'] as String;
+      log('Статус платежа $paymentId: $status');
+      return status;
+    } else {
+      log('Ошибка статуса: ${response.statusCode}');
+      throw Exception('Не удалось получить статус платежа');
+    }
+  }
+}
+
+/// Экран выбора способа оплаты и инициации платежа
 class PaymentScreen extends StatelessWidget {
   final double totalAmount;
-  const PaymentScreen({super.key, required this.totalAmount});
 
-  void _showDialog(BuildContext context, String title, String content) {
+  const PaymentScreen({Key? key, required this.totalAmount}) : super(key: key);
+
+  void _showMessage(BuildContext ctx, String title, String msg) {
     showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
+      context: ctx,
+      builder: (_) => AlertDialog(
         title: Text(title),
-        content: Text(content),
+        content: Text(msg),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
@@ -19,11 +109,6 @@ class PaymentScreen extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  void _processPayment(BuildContext context) {
-    // Здесь можно добавить логику обработки платежа.
-    _showDialog(context, 'Оплата', 'Платеж успешно обработан!');
   }
 
   @override
@@ -36,35 +121,38 @@ class PaymentScreen extends StatelessWidget {
         foregroundColor: Colors.black,
       ),
       body: Padding(
-        padding: const EdgeInsets.all(20.0),
+        padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            const Text(
-              "Способы оплаты",
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
+            Text(
+              'Сумма к оплате: ${totalAmount.toStringAsFixed(2)} ₽',
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 20),
+            // Банковская карта:
             _buildPaymentOptionCard(
               context,
               icon: Icons.credit_card,
               title: 'Банковская карта',
               description: 'Оплата картами российских банков',
-              onTap: () {
-                _processPayment(context);
+              onTap: () async {
+                try {
+                  await CassaRepo.createPayment(totalAmount);
+                } catch (e) {
+                  _showMessage(context, 'Ошибка', e.toString());
+                }
               },
             ),
             const SizedBox(height: 15),
+            // Другие способы:
             _buildPaymentOptionCard(
               context,
               icon: Icons.account_balance_wallet,
               title: 'Другие способы',
               description: 'Электронные кошельки, криптовалюта и т.д.',
               onTap: () {
-                _showDialog(context, "Информация",
-                    "Другие способы оплаты пока недоступны.");
+                _showMessage(context, 'Информация',
+                    'Другие способы оплат пока недоступны.');
               },
             ),
           ],

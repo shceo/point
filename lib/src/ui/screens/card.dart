@@ -43,6 +43,8 @@ class _CardScreenState extends State<CardScreen> {
   Widget build(BuildContext context) {
     final shoeName = widget.product['name'] ?? 'Air Max 270';
     final shoeImage = widget.product['image'] ?? '';
+    final double price =
+        double.tryParse(widget.product['price'].toString()) ?? 0.0;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -227,27 +229,36 @@ class _CardScreenState extends State<CardScreen> {
               ),
             ),
             // Цена и скидка
+
+// А вместо жёсткой строки:
             Align(
               alignment: Alignment.centerLeft,
-              child: Column(
-                children: [
-                  Text(
-                    '\t\t\$30.99\t',
-                    style: GoogleFonts.oswald(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    Text(
+                      '\$${price.toStringAsFixed(2)}',
+                      style: GoogleFonts.oswald(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  Text(
-                    '\t\tСКИДКА 10%',
-                    style: GoogleFonts.oswald(
-                      fontSize: 16,
-                      color: Colors.red,
-                    ),
-                  ),
-                ],
+                    // Если у вас действительно есть логика скидки,
+                    // можно тоже передавать её через product:
+                    if (widget.product.containsKey('discount'))
+                      Text(
+                        'СКИДКА ${widget.product['discount']}%',
+                        style: GoogleFonts.oswald(
+                          fontSize: 16,
+                          color: Colors.red,
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
+
             const SizedBox(height: 16),
             // DragTarget с картинкой box.png и контейнером с иконками, который теперь расположен над картиной
             Padding(

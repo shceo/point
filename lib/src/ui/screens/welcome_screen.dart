@@ -8,7 +8,7 @@ class WelcomeScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: SizedBox(
-          child: Image.asset('assets/icons/nike.png'),
+          child: Image.asset('assets/icons/nike.png', width: 80, height: 80,),
         ),
         centerTitle: true,
       ),
