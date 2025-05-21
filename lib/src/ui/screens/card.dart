@@ -140,7 +140,7 @@ class _CardScreenState extends State<CardScreen>
                             color: Colors.black,
                           ),
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 16),
                         SizedBox(
                           width: 50,
                           child: SingleChildScrollView(
@@ -156,8 +156,8 @@ class _CardScreenState extends State<CardScreen>
                                   },
                                   child: Container(
                                     margin: const EdgeInsets.only(bottom: 8),
-                                    height: 30,
-                                    width: 30,
+                                    height: 35,
+                                    width: 35,
                                     decoration: BoxDecoration(
                                       color: color,
                                       shape: BoxShape.circle,
@@ -177,8 +177,6 @@ class _CardScreenState extends State<CardScreen>
                       ],
                     ),
                   ),
-
-                  // Изображение с фоном-текстом по центру и увеличенным размером
                   Expanded(
                     child: Center(
                       child: Stack(
@@ -186,7 +184,7 @@ class _CardScreenState extends State<CardScreen>
                         children: [
                           Image.asset(
                             'assets/images/text.png',
-                            height: 520,
+                            height: 400,
                             fit: BoxFit.contain,
                           ),
                           AnimatedBuilder(
@@ -254,8 +252,8 @@ class _CardScreenState extends State<CardScreen>
                             },
                             child: Container(
                               margin: const EdgeInsets.only(bottom: 8),
-                              width: 45,
-                              height: 45,
+                              width: 43,
+                              height: 43,
                               alignment: Alignment.center,
                               decoration: BoxDecoration(
                                 color: selectedSize == size
@@ -356,7 +354,7 @@ class _CardScreenState extends State<CardScreen>
                             ),
                           ),
                           Container(
-                            height: 170,
+                            height: 185,
                             width: double.infinity,
                             decoration: const BoxDecoration(
                               image: DecorationImage(
