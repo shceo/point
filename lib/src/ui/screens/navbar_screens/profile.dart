@@ -125,9 +125,9 @@ class _ProfileState extends State<Profile> {
           barrierDismissible: false,
           builder: (context) {
             return AlertDialog(
-              title: const Text('Внимание'),
+              title: const Text('Войдите в аккаунт'),
               content: const Text(
-                  'Для доступа к профилю необходимо войти в аккаунт или зарегистрироваться.'),
+                  'Для доступа к профилю необходимо авторизоваться'),
               actions: [
                 TextButton(
                   onPressed: () {
@@ -143,7 +143,7 @@ class _ProfileState extends State<Profile> {
                   onPressed: () {
                     Navigator.pop(context);
                   },
-                  child: const Text('Напомни позже'),
+                  child: const Text('Позже'),
                 ),
               ],
             );
@@ -398,7 +398,7 @@ class _ProfileState extends State<Profile> {
                         height: 24,
                       ),
                       title: Text(
-                        'Обратная связь',
+                        'Поддержка',
                         style: GoogleFonts.oswald(
                             textStyle: const TextStyle(fontSize: 16)),
                       ),

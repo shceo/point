@@ -15,7 +15,7 @@ class LoginPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Авторизация и Регистрация')),
+      appBar: AppBar(title: const Text('Регистрация')),
       body: BlocProvider(
         create: (context) => AuthenticationBloc(),
         child: BlocConsumer<AuthenticationBloc, AuthenticationState>(
@@ -159,7 +159,7 @@ class LoginScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Вход')),
+      appBar: AppBar(title: const Text('Авторизация')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(

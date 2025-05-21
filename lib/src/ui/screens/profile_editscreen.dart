@@ -52,7 +52,10 @@ class _ProfileEditScreenState extends State<ProfileEditscreen> {
           .get();
       if (doc.exists) {
         Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-        final fullPhone = data['phone'] as String? ?? '';
+        final rawPhone = data['phone'] as String? ?? '';
+        _phoneController.text = rawPhone;
+        _phoneNumber = rawPhone;
+        _initialPhone = rawPhone; // сравниваем без '+'
 
         setState(() {
           _cityController.text = data['city'] ?? '';
@@ -65,8 +68,8 @@ class _ProfileEditScreenState extends State<ProfileEditscreen> {
           _firstNameController.text = parts.isNotEmpty ? parts[0] : '';
           _lastNameController.text =
               parts.length > 1 ? parts.sublist(1).join(' ') : '';
-          _phoneController.text = fullPhone;
-          _phoneNumber = fullPhone;
+          // _phoneController.text = fullPhone;
+          // _phoneNumber = fullPhone;
           _initialCity = _cityController.text.trim();
           _initialDob = _dobController.text.trim();
           _initialGender = _selectedGender;
@@ -136,13 +139,14 @@ class _ProfileEditScreenState extends State<ProfileEditscreen> {
     try {
       // Обновляем displayName в Firebase Auth
       await user.updateDisplayName(newDisplayName);
-
+      // final rawToSave = _phoneNumber.replaceAll('+', '');
+        final rawToSave = _phoneNumber;
       // Сохраняем в Firestore
       final data = {
         'firstName': _firstNameController.text.trim(),
         'lastName': _lastNameController.text.trim(),
         'displayName': newDisplayName,
-        'phone': _phoneNumber,
+        'phone': rawToSave,
         'city': _cityController.text.trim(),
         'gender': _selectedGender,
         'date_of_birth': _dobController.text.trim(),
@@ -295,10 +299,9 @@ class _ProfileEditScreenState extends State<ProfileEditscreen> {
                             EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       ),
                       initialCountryCode: 'RU',
-                      initialValue: _phoneNumber, // ← здесь
-                      onChanged: (phone) => _phoneNumber = phone.completeNumber,
-                      onSaved: (phone) =>
-                          _phoneNumber = phone?.completeNumber ?? '',
+                      initialValue: _phoneController.text, // ← здесь
+                      onChanged: (phone) => _phoneNumber = phone.number,
+                      onSaved: (phone) => _phoneNumber = phone?.number ?? '',
                       validator: (phone) =>
                           phone == null || phone.number.isEmpty
                               ? 'Введите номер телефона'
@@ -320,7 +323,6 @@ class _ProfileEditScreenState extends State<ProfileEditscreen> {
                       ),
                     ),
                   ),
-// Поле для Фамилии
                   _buildInputField(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12.0),
