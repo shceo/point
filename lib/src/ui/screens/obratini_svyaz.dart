@@ -84,7 +84,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Обратная связь')),
+      appBar: AppBar(title: const Text('Поддержка')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -117,7 +117,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
             Center(
               child: ElevatedButton(
                 onPressed: _sendFeedback,
-                child: const Text('Отправить'),
+                child: Text('Отправить'),
                 style: ElevatedButton.styleFrom(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
