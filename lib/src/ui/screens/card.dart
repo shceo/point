@@ -11,11 +11,10 @@ class CardScreen extends StatefulWidget {
   State<CardScreen> createState() => _CardScreenState();
 }
 
-class _CardScreenState extends State<CardScreen> {
-  final List<double> availableSizes = [9, 9.5, 10, 11];
-  double selectedSize = 9.5;
+class _CardScreenState extends State<CardScreen>
+    with SingleTickerProviderStateMixin {
+  int selectedSize = 42;
   Color selectedColor = Colors.red;
-
   final List<Color> colorOptions = [
     Colors.blue,
     Colors.red,
@@ -24,11 +23,50 @@ class _CardScreenState extends State<CardScreen> {
     Colors.black,
   ];
 
+  final List<int> availableSizes = [41, 42, 43, 44, 45];
+
   final DatabaseService _databaseService = DatabaseService();
 
-  void _addToBasket() async {
-    String colorStr = selectedColor == Colors.blue ? 'синий' : 'красный';
+  late final AnimationController _animController;
+
+  @override
+  void initState() {
+    super.initState();
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    )..addStatusListener((status) {
+        if (status == AnimationStatus.completed) {
+          Future.delayed(const Duration(milliseconds: 300), () {
+            _animController.reverse();
+          });
+        }
+      });
+  }
+
+  @override
+  void dispose() {
+    _animController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _addToBasket() async {
+    // Преобразуем выбранный цвет в строку
+    String colorStr;
+    if (selectedColor == Colors.blue) {
+      colorStr = 'синий';
+    } else if (selectedColor == Colors.red) {
+      colorStr = 'красный';
+    } else if (selectedColor == Colors.green) {
+      colorStr = 'зелёный';
+    } else if (selectedColor == Colors.orange) {
+      colorStr = 'оранжевый';
+    } else {
+      colorStr = 'чёрный';
+    }
+
     double price = double.tryParse(widget.product['price'].toString()) ?? 0.0;
+
     await _databaseService.addToBasket(
       productId: widget.product['id'] ?? '',
       name: widget.product['name'] ?? '',
@@ -37,11 +75,22 @@ class _CardScreenState extends State<CardScreen> {
       color: colorStr,
       imagePath: widget.product['image'] ?? '',
     );
+
+    // Запускаем анимацию «падения» товара
+    _animController.forward();
+
+    // Показываем сообщение об успешном добавлении
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Товар успешно добавлен в корзину'),
+        duration: Duration(seconds: 2),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final shoeName = widget.product['name'] ?? 'Air Max 270';
+    final shoeName = widget.product['name'] ?? '';
     final shoeImage = widget.product['image'] ?? '';
     final double price =
         double.tryParse(widget.product['price'].toString()) ?? 0.0;
@@ -51,7 +100,7 @@ class _CardScreenState extends State<CardScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Верхняя панель с кнопкой назад и названием
+            // Верхняя панель
             Padding(
               padding:
                   const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -61,14 +110,6 @@ class _CardScreenState extends State<CardScreen> {
                     icon: const Icon(Icons.arrow_back, color: Colors.black),
                     onPressed: () => Navigator.pop(context),
                   ),
-                  const SizedBox(width: 8),
-                  // Text(
-                  //   'Мужской',
-                  //   style: GoogleFonts.oswald(
-                  //     color: Colors.black,
-                  //     fontSize: 18,
-                  //   ),
-                  // ),
                   const Spacer(),
                   Text(
                     shoeName,
@@ -80,13 +121,119 @@ class _CardScreenState extends State<CardScreen> {
                 ],
               ),
             ),
+
+            // Основная часть: цвета, изображение, размеры
             Expanded(
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Список размеров
+                  // Блок выбора цвета
                   Padding(
-                    padding: const EdgeInsets.only(left: 16.0),
+                    padding: const EdgeInsets.only(left: 24.0, top: 16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Цвет',
+                          style: GoogleFonts.oswald(
+                            fontSize: 18,
+                            color: Colors.black,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          width: 50,
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.vertical,
+                            child: Column(
+                              children: colorOptions.map((color) {
+                                final isSelected = color == selectedColor;
+                                return GestureDetector(
+                                  onTap: () {
+                                    setState(() {
+                                      selectedColor = color;
+                                    });
+                                  },
+                                  child: Container(
+                                    margin: const EdgeInsets.only(bottom: 8),
+                                    height: 30,
+                                    width: 30,
+                                    decoration: BoxDecoration(
+                                      color: color,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: isSelected
+                                            ? Colors.black
+                                            : Colors.transparent,
+                                        width: 2,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Изображение с фоном-текстом по центру и увеличенным размером
+                  Expanded(
+                    child: Center(
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Image.asset(
+                            'assets/images/text.png',
+                            height: 520,
+                            fit: BoxFit.contain,
+                          ),
+                          AnimatedBuilder(
+                            animation: _animController,
+                            builder: (context, child) {
+                              final dy = _animController.value * 300;
+                              return Transform.translate(
+                                offset: Offset(0, dy),
+                                child: child,
+                              );
+                            },
+                            child: Transform.rotate(
+                              angle: -50 * math.pi / 180,
+                              child: Draggable<Map<String, dynamic>>(
+                                data: widget.product,
+                                feedback: Opacity(
+                                  opacity: 0.8,
+                                  child: Image.asset(
+                                    shoeImage,
+                                    height: 200,
+                                    fit: BoxFit.contain,
+                                  ),
+                                ),
+                                childWhenDragging: Opacity(
+                                  opacity: 0.4,
+                                  child: Image.asset(
+                                    shoeImage,
+                                    height: 250,
+                                    fit: BoxFit.contain,
+                                  ),
+                                ),
+                                child: Image.asset(
+                                  shoeImage,
+                                  height: 400,
+                                  fit: BoxFit.contain,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Блок выбора размера
+                  Padding(
+                    padding: const EdgeInsets.only(right: 24.0, top: 16.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -131,121 +278,25 @@ class _CardScreenState extends State<CardScreen> {
                       ],
                     ),
                   ),
-                  Expanded(
-                    child: Center(
-                      child: Transform.translate(
-                        offset: const Offset(0, -30),
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            Positioned(
-                              child: Image.asset(
-                                'assets/images/text.png',
-                                height: 480,
-                                fit: BoxFit.contain,
-                              ),
-                            ),
-                            Transform.rotate(
-                              angle: -50 * math.pi / 180,
-                              child: Draggable<Map<String, dynamic>>(
-                                data: widget.product,
-                                feedback: Opacity(
-                                  opacity: 0.8,
-                                  child: Image.asset(
-                                    shoeImage,
-                                    height: 300,
-                                    fit: BoxFit.contain,
-                                  ),
-                                ),
-                                childWhenDragging: Opacity(
-                                  opacity: 0.4,
-                                  child: Image.asset(
-                                    shoeImage,
-                                    height: 300,
-                                    fit: BoxFit.contain,
-                                  ),
-                                ),
-                                child: Image.asset(
-                                  shoeImage,
-                                  height: 300,
-                                  fit: BoxFit.contain,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  // Выбор цвета
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Цвет',
-                        style: GoogleFonts.oswald(
-                          fontSize: 18,
-                          color: Colors.black,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      SizedBox(
-                        height: 80,
-                        width: 50,
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.vertical,
-                          child: Column(
-                            children: colorOptions.map((color) {
-                              final isSelected = color == selectedColor;
-                              return GestureDetector(
-                                onTap: () {
-                                  setState(() {
-                                    selectedColor = color;
-                                  });
-                                },
-                                child: Container(
-                                  margin: const EdgeInsets.only(bottom: 8),
-                                  height: 30,
-                                  width: 30,
-                                  decoration: BoxDecoration(
-                                    color: color,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: isSelected
-                                          ? Colors.black
-                                          : Colors.transparent,
-                                      width: 2,
-                                    ),
-                                  ),
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
                 ],
               ),
             ),
-            // Цена и скидка
 
-// А вместо жёсткой строки:
+            // Цена и скидка
             Align(
               alignment: Alignment.centerLeft,
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '\$${price.toStringAsFixed(2)}',
+                      '${price.toStringAsFixed(0)} ₽',
                       style: GoogleFonts.oswald(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    // Если у вас действительно есть логика скидки,
-                    // можно тоже передавать её через product:
                     if (widget.product.containsKey('discount'))
                       Text(
                         'СКИДКА ${widget.product['discount']}%',
@@ -260,13 +311,12 @@ class _CardScreenState extends State<CardScreen> {
             ),
 
             const SizedBox(height: 16),
-            // DragTarget с картинкой box.png и контейнером с иконками, который теперь расположен над картиной
+
+            // DragTarget + кнопка «Добавить в корзину»
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: DragTarget<Map<String, dynamic>>(
-                onAcceptWithDetails: (data) {
-                  _addToBasket();
-                },
+                onAccept: (_) => _addToBasket(),
                 builder: (context, candidateData, rejectedData) {
                   return GestureDetector(
                     onTap: _addToBasket,
@@ -274,9 +324,7 @@ class _CardScreenState extends State<CardScreen> {
                       margin: const EdgeInsets.symmetric(
                           horizontal: 18.0, vertical: 2.0),
                       child: Column(
-                        // mainAxisSize: MainAxisSize.min,
                         children: [
-                          // Контейнер с двумя иконками (сверху)
                           Container(
                             padding: const EdgeInsets.symmetric(
                                 vertical: 18, horizontal: 16),
@@ -287,16 +335,19 @@ class _CardScreenState extends State<CardScreen> {
                             child: const Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.shopping_bag_outlined,
-                                    color: Colors.white),
+                                Icon(
+                                  Icons.shopping_bag_outlined,
+                                  color: Colors.white,
+                                ),
                                 SizedBox(width: 18),
-                                Icon(Icons.keyboard_double_arrow_down_rounded,
-                                    color: Colors.white),
+                                Icon(
+                                  Icons.keyboard_double_arrow_down_rounded,
+                                  color: Colors.white,
+                                ),
                               ],
                             ),
                           ),
                           const SizedBox(height: 4),
-                          // Текст между контейнером с иконками и картинкой
                           Text(
                             'Добавить в корзину',
                             style: GoogleFonts.oswald(

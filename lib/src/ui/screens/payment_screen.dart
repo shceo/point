@@ -3,8 +3,8 @@
 import 'dart:convert';
 import 'dart:developer';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:davlat/src/data/db/database.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:davlat/src/data/db/database.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
@@ -81,18 +81,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
         ..setNavigationDelegate(
           NavigationDelegate(
             onNavigationRequest: (req) {
-              ;
-
               // ловим диплинк
               if (req.url.startsWith('myapp://payment-callback')) {
-                FirebaseFirestore.instance
-                    .collection('users')
-                    .doc(FirebaseAuth.instance.currentUser!.uid)
-                    .set({
-                  'loyalty': FieldValue.increment(5)
-                }, SetOptions(merge: true)).catchError(
-                        (e) => debugPrint('Ошибка бонусов: $e'));
-                _showSuccess();
+                _onPaymentSuccess();
                 return NavigationDecision.prevent;
               }
               return NavigationDecision.navigate;
@@ -109,14 +100,38 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
   }
 
-  Future<void> _showSuccess() async {
-    // 1) Считаем всё, что сейчас в корзине
+  Future<void> _onPaymentSuccess() async {
     final db = DatabaseService();
     final basket = await db.getBasketItems();
+
+    // 1) Сначала добавляем локально
     for (var item in basket) {
       await db.addOrder(item);
     }
+    // 2) Затем отправляем каждый заказ в Firestore
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final userOrders = FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('orders');
+      for (var item in basket) {
+        await userOrders.add({
+          'name': item['name'] as String,
+          'price': item['price'] as num,
+          'counter': item['counter'] as int,
+          'size': item['size'] as String,
+          'color': item['color'] as String,
+          'imagePath': item['imagePath'] as String,
+          'timestamp': FieldValue.serverTimestamp(),
+        });
+      }
+    }
+
+    // 3) Очищаем локальную корзину
     await db.clearBasket();
+
+    // 4) Показываем диалог успеха
     showDialog(
       context: context,
       barrierDismissible: false,

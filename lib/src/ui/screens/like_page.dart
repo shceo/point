@@ -1,4 +1,4 @@
-import 'package:davlat/src/exports.dart';
+import 'package:davlat/src/exports.dart'; // Должен экспортировать CardScreen
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/material.dart';
 
@@ -18,36 +18,23 @@ class LikePage extends StatefulWidget {
 
 class _LikePageState extends State<LikePage> {
   final DatabaseService _databaseService = DatabaseService();
-  List<String> likedImages = [];
-  List<String> likedNames = [];
+  late List<String> likedImages;
+  late List<String> likedNames;
 
   @override
   void initState() {
     super.initState();
-    _loadLikedItems();
-  }
-
-  Future<void> _loadLikedItems() async {
-    final images = await _databaseService.getFavorites();
-    setState(() {
-      likedImages = images;
-      likedNames = images.map((image) {
-        final match = RegExp(r'(\d+)\.png').firstMatch(image);
-        if (match != null) {
-          return 'Кроссовка ${match.group(1)}';
-        }
-        return 'Кроссовка';
-      }).toList();
-    });
+    likedImages = List.from(widget.likedImages);
+    likedNames = List.from(widget.likedNames);
   }
 
   Future<void> _removeFromFavorites(String imagePath) async {
     await _databaseService.removeFavorite(imagePath);
     setState(() {
-      final index = likedImages.indexOf(imagePath);
-      if (index != -1) {
-        likedImages.removeAt(index);
-        likedNames.removeAt(index);
+      final idx = likedImages.indexOf(imagePath);
+      if (idx != -1) {
+        likedImages.removeAt(idx);
+        likedNames.removeAt(idx);
       }
     });
   }
@@ -71,7 +58,7 @@ class _LikePageState extends State<LikePage> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: Text('Избранные', style: GoogleFonts.oswald()),
+          title: Text('Избранное', style: GoogleFonts.oswald()),
           centerTitle: true,
           actions: [
             if (likedImages.isNotEmpty)
@@ -102,21 +89,7 @@ class _LikePageState extends State<LikePage> {
                   return Dismissible(
                     key: ValueKey(imagePath),
                     direction: DismissDirection.endToStart,
-                    onDismissed: (direction) async {
-                      await _removeFromFavorites(imagePath);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: const Text('Удалено из избранного'),
-                          action: SnackBarAction(
-                            label: 'Отмена',
-                            onPressed: () async {
-                              await _databaseService.addFavorite(imagePath);
-                              _loadLikedItems();
-                            },
-                          ),
-                        ),
-                      );
-                    },
+                    onDismissed: (direction) => _removeFromFavorites(imagePath),
                     background: Container(
                       color: Colors.red,
                       alignment: Alignment.centerRight,
@@ -141,6 +114,21 @@ class _LikePageState extends State<LikePage> {
                                 const TextStyle(fontWeight: FontWeight.bold),
                           ),
                         ),
+                        onTap: () {
+                          final product = <String, dynamic>{
+                            'id': shoeName,
+                            'name': shoeName,
+                            'price': 0.0,
+                            'image': imagePath,
+                          };
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  CardScreen(product: product),
+                            ),
+                          );
+                        },
                       ),
                     ),
                   );

@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'dart:math';
 
-import 'package:davlat/src/exports.dart';
+import 'package:davlat/src/exports.dart'; // Предполагает, что туда входит CardScreen
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/material.dart';
 
@@ -16,65 +18,57 @@ class _HomepageState extends State<Homepage> {
 
   final List<Map<String, dynamic>> bagItems = [];
   final List<Map<String, dynamic>> favoriteProducts = [];
-  final List<String> _tabs = ['Повседневная', 'Спортивная', 'Распродажа'];
-  final List<List<Map<String, dynamic>>> _products = [
-    List.generate(
-      20,
-      (index) => {
-        'id': 'casual${index + 1}',
-        'name': 'AirJordan ${index + 1}',
-        'price': (index + 1) * 10,
-        'image': 'assets/scroll/${index + 1}.png',
-      },
-    ),
-    List.generate(
-      20,
-      (index) => {
-        'id': 'run${index + 1}',
-        'name': 'Бег ${index + 1}',
-        'price': (index + 1) * 15,
-        'image': 'assets/scroll/${index + 9}.png',
-      },
-    ),
-    List.generate(
-      20,
-      (index) => {
-        'id': 'tennis${index + 1}',
-        'name': 'Теннис ${index + 1}',
-        'price': (index + 1) * 20,
-        'image': 'assets/scroll/${index + 17}.png',
-      },
-    ),
-  ];
+  List<Map<String, dynamic>> _categories = [];
   int _selectedTabIndex = 0;
+
+  List<String> get _tabs =>
+      _categories.map((c) => c['name'] as String).toList();
 
   @override
   void initState() {
     super.initState();
-    _assignRandomDiscounts();
+    _loadProductsFromJson();
     _loadFavorites();
   }
 
-  void _assignRandomDiscounts() {
-    final rand = Random();
-    for (var tab in _products) {
-      for (var product in tab) {
-        if (rand.nextBool()) {
-          product['discount'] = 20;
+  /// Загрузка категорий и продуктов из JSON-файла
+  Future<void> _loadProductsFromJson() async {
+    try {
+      final jsonString =
+          await rootBundle.loadString('assets/data/products.json');
+      final Map<String, dynamic> decoded = json.decode(jsonString);
+      final loaded = (decoded['categories'] as List)
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+
+      // Генерируем уникальный id для каждого продукта по его имени
+      for (var category in loaded) {
+        final products = category['products'] as List<dynamic>;
+        for (var prod in products) {
+          final p = prod as Map<String, dynamic>;
+          p['id'] = p['name'] as String;
         }
       }
+
+      setState(() {
+        _categories = loaded;
+        _assignRandomDiscounts();
+      });
+    } catch (e) {
+      debugPrint('Ошибка загрузки JSON: $e');
     }
   }
 
-  /// Загружает список избранного из БД и обновляет favoriteProducts,
-  /// сопоставляя сохранённые image со списком продуктов.
+  /// Загружает список избранного из БД и обновляет favoriteProducts
   Future<void> _loadFavorites() async {
     final List<String> favImages = await _databaseService.getFavorites();
     List<Map<String, dynamic>> favProducts = [];
-    for (var tab in _products) {
-      for (var product in tab) {
-        if (favImages.contains(product['image'])) {
-          favProducts.add(product);
+    for (var category in _categories) {
+      final products = category['products'] as List<dynamic>;
+      for (var prod in products) {
+        final p = prod as Map<String, dynamic>;
+        if (favImages.contains(p['image'] as String)) {
+          favProducts.add(p);
         }
       }
     }
@@ -85,27 +79,37 @@ class _HomepageState extends State<Homepage> {
     });
   }
 
+  void _assignRandomDiscounts() {
+    final rand = Random();
+    for (var category in _categories) {
+      final products = category['products'] as List<dynamic>;
+      for (var prod in products) {
+        final p = prod as Map<String, dynamic>;
+        if (rand.nextBool()) {
+          p['discount'] = 20;
+        }
+      }
+    }
+  }
+
   Future<void> _addToFavorites(Map<String, dynamic> product) async {
-    // Проверяем по image, а не по ссылке на объект.
     if (favoriteProducts.any((p) => p['image'] == product['image'])) {
       showDialog(
         context: context,
-        builder: (context) {
-          return AlertDialog(
-            title: const Text('Внимание'),
-            content: Text('${product['name']} уже в избранном'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('ОК'),
-              ),
-            ],
-          );
-        },
+        builder: (context) => AlertDialog(
+          title: const Text('Внимание'),
+          content: Text('${product['name']} уже в избранном'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('ОК'),
+            ),
+          ],
+        ),
       );
       return;
     }
-    await _databaseService.addFavorite(product['image']);
+    await _databaseService.addFavorite(product['image'] as String);
     setState(() {
       favoriteProducts.add(product);
     });
@@ -117,27 +121,18 @@ class _HomepageState extends State<Homepage> {
     );
   }
 
+  /// Теперь вместо прямого добавления мы открываем CardScreen,
+  /// где пользователь выберет размер и цвет.
   Future<void> _addToBag(Map<String, dynamic> product) async {
-    final newProduct = Map<String, dynamic>.from(product);
-    newProduct['counter'] = 1;
-    await _databaseService.addToBasket(
-      productId: product['id'],
-      name: product['name'],
-      price: (product['price'] as num).toDouble(),
-      size: "9.5",
-      color: "красный",
-      imagePath: product['image'],
-    );
-
-    setState(() {
-      bagItems.add(newProduct);
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${product['name']} добавлен в корзину'),
-        duration: const Duration(seconds: 2),
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CardScreen(product: product),
       ),
     );
+    // После возврата из CardScreen можно обновить список корзины,
+    // если нужно тут, например:
+    // _loadBagItems();
   }
 
   Future<void> _navigateToLikePage() async {
@@ -155,9 +150,8 @@ class _HomepageState extends State<Homepage> {
     );
     if (result != null && result is List<String>) {
       setState(() {
-        // Удаляем из списка товары, которых больше нет в базе избранного.
-        favoriteProducts
-            .removeWhere((product) => !result.contains(product['image']));
+        favoriteProducts.removeWhere(
+            (product) => !result.contains(product['image'] as String));
       });
     }
   }
@@ -180,13 +174,13 @@ class _HomepageState extends State<Homepage> {
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Заголовок коллекции
             Text(
-              'Новая Коллекция',
+              'Новая коллекция',
               style: GoogleFonts.oswald(
                 textStyle: const TextStyle(
                   fontSize: 24,
@@ -205,26 +199,24 @@ class _HomepageState extends State<Homepage> {
               ),
             ),
             const SizedBox(height: 8),
-            // Новый баннер: синий адаптивный контейнер вместо картинки
+            // Баннер
             Stack(
               children: [
                 Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 8),
+                  // margin: const EdgeInsets.symmetric(horizontal: 8),
                   width: MediaQuery.of(context).size.width,
-                  height: MediaQuery.of(context).size.height *
-                      0.2, // 20% от высоты экрана
+                  height: MediaQuery.of(context).size.height * 0.2,
                   decoration: BoxDecoration(
                     color: Colors.blue,
                     borderRadius: BorderRadius.circular(18),
                   ),
                   child: Stack(
                     children: [
-                      // Верхний текст
                       const Positioned(
                         top: 16,
                         left: 16,
                         child: Text(
-                          '20% скидки',
+                          '20% скидка',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 24,
@@ -232,30 +224,28 @@ class _HomepageState extends State<Homepage> {
                           ),
                         ),
                       ),
-                      // Мини-текст ниже
                       const Positioned(
                         top: 48,
                         left: 16,
                         child: Text(
-                          'на новую\n коллекцию',
+                          'на новую\nколлекцию',
                           style: TextStyle(
                             color: Colors.white60,
                             fontSize: 16,
                           ),
                         ),
                       ),
-                      // Кнопка в нижней части
                       Align(
-                          alignment: Alignment.bottomRight,
-                          child: Image.asset(
-                            'assets/images/shoe.png',
-                          )),
+                        alignment: Alignment.bottomRight,
+                        child: Image.asset('assets/images/shoe.png'),
+                      ),
                     ],
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 16),
+
             // Табы
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -263,11 +253,9 @@ class _HomepageState extends State<Homepage> {
                 _tabs.length,
                 (index) => Expanded(
                   child: InkWell(
-                    onTap: () {
-                      setState(() {
-                        _selectedTabIndex = index;
-                      });
-                    },
+                    onTap: () => setState(() {
+                      _selectedTabIndex = index;
+                    }),
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       alignment: Alignment.center,
@@ -289,6 +277,7 @@ class _HomepageState extends State<Homepage> {
               ),
             ),
             const SizedBox(height: 16),
+
             // Сетка продуктов
             Center(
               child: Wrap(
@@ -296,12 +285,19 @@ class _HomepageState extends State<Homepage> {
                 spacing: 16,
                 runSpacing: 16,
                 children: List.generate(
-                  _products[_selectedTabIndex].length,
-                  (index) => SizedBox(
-                    width: MediaQuery.of(context).size.width / 2 - 24,
-                    child:
-                        _buildProductCard(_products[_selectedTabIndex][index]),
-                  ),
+                  (_categories.isNotEmpty
+                      ? (_categories[_selectedTabIndex]['products']
+                              as List<dynamic>)
+                          .length
+                      : 0),
+                  (index) {
+                    final product = (_categories[_selectedTabIndex]['products']
+                        as List<dynamic>)[index] as Map<String, dynamic>;
+                    return SizedBox(
+                      width: MediaQuery.of(context).size.width / 2 - 24,
+                      child: _buildProductCard(product),
+                    );
+                  },
                 ),
               ),
             ),
@@ -312,7 +308,6 @@ class _HomepageState extends State<Homepage> {
   }
 
   Widget _buildProductCard(Map<String, dynamic> product) {
-    // Проверяем, содержится ли product по image в favoriteProducts.
     bool isFavorite =
         favoriteProducts.any((p) => p['image'] == product['image']);
     return Card(
@@ -320,17 +315,14 @@ class _HomepageState extends State<Homepage> {
       elevation: 3,
       child: Stack(
         children: [
-          // Фон карточки обёрнут в InkWell для навигации
           InkWell(
             borderRadius: BorderRadius.circular(20),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => CardScreen(product: product),
-                ),
-              );
-            },
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => CardScreen(product: product),
+              ),
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -338,7 +330,7 @@ class _HomepageState extends State<Homepage> {
                 Flexible(
                   fit: FlexFit.loose,
                   child: Image.asset(
-                    product['image'],
+                    product['image'] as String,
                     fit: BoxFit.cover,
                   ),
                 ),
@@ -346,7 +338,7 @@ class _HomepageState extends State<Homepage> {
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   child: Text(
-                    product['name'],
+                    product['name'] as String,
                     style: GoogleFonts.oswald(
                       textStyle: const TextStyle(
                         fontSize: 14,
@@ -360,7 +352,7 @@ class _HomepageState extends State<Homepage> {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Text(
-                    '\$${product['price']}',
+                    '${product['price']} ₽',
                     style: GoogleFonts.oswald(
                       textStyle: const TextStyle(
                         fontSize: 16,
@@ -374,7 +366,6 @@ class _HomepageState extends State<Homepage> {
               ],
             ),
           ),
-          // Кнопка "лайк"
           Positioned(
             top: 8,
             left: 8,
@@ -383,20 +374,15 @@ class _HomepageState extends State<Homepage> {
                 isFavorite ? Icons.favorite : Icons.favorite_border,
                 color: isFavorite ? Colors.red : Colors.grey,
               ),
-              onPressed: () {
-                _addToFavorites(product);
-              },
+              onPressed: () => _addToFavorites(product),
             ),
           ),
-          // Кнопка "корзина"
           Positioned(
             top: 8,
             right: 8,
             child: IconButton(
               icon: const Icon(Icons.shopping_bag_outlined, color: Colors.grey),
-              onPressed: () {
-                _addToBag(product);
-              },
+              onPressed: () => _addToBag(product),
             ),
           ),
         ],

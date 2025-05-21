@@ -1,44 +1,43 @@
 {
-    "categories": [
-      {
-        "name": "Повседневная",
-        "products": [
-          { "name": "Air Jordan", "price": 90, "image": "assets/scroll/1.png" },
-          { "name": "Air Max", "price": 20, "image": "assets/scroll/2.png" },
-          { "name": "Air Force", "price": 30, "image": "assets/scroll/3.png" },
-          { "name": "Jordan", "price": 40, "image": "assets/scroll/4.png" },
-          { "name": "Air Zoom", "price": 50, "image": "assets/scroll/5.png" },
-          { "name": "Air Jordan", "price": 60, "image": "assets/scroll/6.png" },
-          { "name": "Повседневный 7", "price": 70, "image": "assets/scroll/7.png" },
-          { "name": "Повседневный 8", "price": 80, "image": "assets/scroll/8.png" }
-        ]
-      },
-      {
-        "name": "Бег",
-        "products": [
-          { "name": "Бег 1", "price": 15, "image": "assets/scroll/9.png" },
-          { "name": "Бег 2", "price": 30, "image": "assets/scroll/10.png" },
-          { "name": "Бег 3", "price": 45, "image": "assets/scroll/11.png" },
-          { "name": "Бег 4", "price": 60, "image": "assets/scroll/12.png" },
-          { "name": "Бег 5", "price": 75, "image": "assets/scroll/13.png" },
-          { "name": "Бег 6", "price": 90, "image": "assets/scroll/14.png" },
-          { "name": "Бег 7", "price": 105, "image": "assets/scroll/15.png" },
-          { "name": "Бег 8", "price": 120, "image": "assets/scroll/16.png" }
-        ]
-      },
-      {
-        "name": "Теннис",
-        "products": [
-          { "name": "Теннис 1", "price": 20, "image": "assets/scroll/17.png" },
-          { "name": "Теннис 2", "price": 40, "image": "assets/scroll/18.png" },
-          { "name": "Теннис 3", "price": 60, "image": "assets/scroll/19.png" },
-          { "name": "Теннис 4", "price": 80, "image": "assets/scroll/20.png" },
-          { "name": "Теннис 5", "price": 100, "image": "assets/scroll/21.png" },
-          { "name": "Теннис 6", "price": 120, "image": "assets/scroll/22.png" },
-          { "name": "Теннис 7", "price": 140, "image": "assets/scroll/23.png" },
-          { "name": "Теннис 8", "price": 160, "image": "assets/scroll/24.png" }
-        ]
-      }
-    ]
-  }
-  
+  "categories": [
+    {
+      "name": "Повседневная",
+      "products": [
+        { "name": "Nike Air Force 1",         "price": 10500, "image": "assets/scroll/1.png" },
+        { "name": "Adidas Stan Smith",       "price":  7800, "image": "assets/scroll/2.png" },
+        { "name": "Puma Suede Classic",      "price":  6500, "image": "assets/scroll/3.png" },
+        { "name": "Converse Chuck Taylor",   "price":  4300, "image": "assets/scroll/4.png" },
+        { "name": "Vans Old Skool",          "price":  9200, "image": "assets/scroll/5.png" },
+        { "name": "New Balance 574",         "price": 11200, "image": "assets/scroll/6.png" },
+        { "name": "Reebok Classic Leather",  "price":  5400, "image": "assets/scroll/7.png" },
+        { "name": "ASICS Gel-Lyte III",      "price": 15700, "image": "assets/scroll/8.png" }
+      ]
+    },
+    {
+      "name": "Бег",
+      "products": [
+        { "name": "Nike Pegasus 38",             "price": 12800, "image": "assets/scroll/9.png" },
+        { "name": "Brooks Ghost 14",             "price": 14600, "image": "assets/scroll/10.png" },
+        { "name": "ASICS Gel-Nimbus 23",         "price": 15800, "image": "assets/scroll/11.png" },
+        { "name": "Saucony Kinvara 12",          "price":  9300, "image": "assets/scroll/12.png" },
+        { "name": "New Balance FuelCell Rebel",  "price": 17200, "image": "assets/scroll/13.png" },
+        { "name": "Adidas Ultraboost 22",        "price": 19600, "image": "assets/scroll/14.png" },
+        { "name": "Hoka Clifton 8",              "price": 18400, "image": "assets/scroll/15.png" },
+        { "name": "Mizuno Wave Rider 25",        "price": 11900, "image": "assets/scroll/16.png" }
+      ]
+    },
+    {
+      "name": "Теннис",
+      "products": [
+        { "name": "Nike Court Royale",                 "price":  8800, "image": "assets/scroll/17.png" },
+        { "name": "Adidas Grand Court",               "price":  7200, "image": "assets/scroll/18.png" },
+        { "name": "Wilson Rush Pro 3.0",              "price": 13200, "image": "assets/scroll/19.png" },
+        { "name": "Babolat Jet Mach 4",               "price": 16700, "image": "assets/scroll/20.png" },
+        { "name": "Yonex Power Cushion Eclipsion",    "price": 14900, "image": "assets/scroll/21.png" },
+        { "name": "Head Revolt Pro 3.0",              "price": 15600, "image": "assets/scroll/22.png" },
+        { "name": "K-Swiss Hypercourt Express 2",     "price":  9400, "image": "assets/scroll/23.png" },
+        { "name": "Diadora Game L",                   "price": 10900, "image": "assets/scroll/24.png" }
+      ]
+    }
+  ]
+}

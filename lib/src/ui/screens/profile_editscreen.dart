@@ -13,16 +13,24 @@ class ProfileEditscreen extends StatefulWidget {
 
 class _ProfileEditScreenState extends State<ProfileEditscreen> {
   final TextEditingController _cityController = TextEditingController();
+
   String? _selectedGender;
   final TextEditingController _dobController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
   String _phoneNumber = '';
   DateTime? _selectedDate;
+  final TextEditingController _firstNameController = TextEditingController();
+  final TextEditingController _lastNameController = TextEditingController();
+  String? _fullName;
 
   // Хранение первоначальных данных для проверки не сохранённых изменений.
   String _initialCity = '';
   String _initialDob = '';
+
   String? _initialGender;
   String _initialPhone = '';
+  String _initialFirstName = '';
+  String _initialLastName = '';
 
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
@@ -44,15 +52,27 @@ class _ProfileEditScreenState extends State<ProfileEditscreen> {
           .get();
       if (doc.exists) {
         Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        final fullPhone = data['phone'] as String? ?? '';
+
         setState(() {
           _cityController.text = data['city'] ?? '';
           _dobController.text = data['date_of_birth'] ?? '';
           _selectedGender = data['gender'];
           _phoneNumber = data['phone'] ?? '';
-          // Сохраняем начальные значения для отслеживания изменений
+          User? user = FirebaseAuth.instance.currentUser;
+          String displayName = user?.displayName ?? '';
+          List<String> parts = displayName.split(' ');
+          _firstNameController.text = parts.isNotEmpty ? parts[0] : '';
+          _lastNameController.text =
+              parts.length > 1 ? parts.sublist(1).join(' ') : '';
+          _phoneController.text = fullPhone;
+          _phoneNumber = fullPhone;
           _initialCity = _cityController.text.trim();
           _initialDob = _dobController.text.trim();
           _initialGender = _selectedGender;
+          _initialFirstName = _firstNameController.text.trim();
+          _initialLastName = _lastNameController.text.trim();
+
           _initialPhone = _phoneNumber.trim();
         });
       } else {
@@ -101,44 +121,54 @@ class _ProfileEditScreenState extends State<ProfileEditscreen> {
   }
 
   /// Сохраняет профиль пользователя в Firestore
+
   Future<void> _saveProfile() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
+    _formKey.currentState!.save();
+
     User? user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    Map<String, dynamic> data = {
-      'phone': _phoneNumber,
-      'city': _cityController.text.trim(),
-      'gender': _selectedGender,
-      'date_of_birth': _dobController.text.trim(),
-      'displayName': user.displayName,
-      'email': user.email,
-    };
+    // Собираем новое имя
+    final newDisplayName = '${_firstNameController.text.trim()} '
+        '${_lastNameController.text.trim()}';
+
     try {
+      // Обновляем displayName в Firebase Auth
+      await user.updateDisplayName(newDisplayName);
+
+      // Сохраняем в Firestore
+      final data = {
+        'firstName': _firstNameController.text.trim(),
+        'lastName': _lastNameController.text.trim(),
+        'displayName': newDisplayName,
+        'phone': _phoneNumber,
+        'city': _cityController.text.trim(),
+        'gender': _selectedGender,
+        'date_of_birth': _dobController.text.trim(),
+        'email': user.email,
+      };
       await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
           .set(data, SetOptions(merge: true));
-      // Обновляем начальные данные, так как сохранение прошло успешно
+
+      // Обновляем «initial»-значения и показываем успех
       setState(() {
+        _initialFirstName = _firstNameController.text.trim();
+        _initialLastName = _lastNameController.text.trim();
+        _initialPhone = _phoneNumber.trim();
         _initialCity = _cityController.text.trim();
         _initialDob = _dobController.text.trim();
         _initialGender = _selectedGender;
-        _initialPhone = _phoneNumber.trim();
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Профиль успешно обновлён"),
-          duration: Duration(seconds: 2),
-        ),
+        const SnackBar(content: Text("Профиль успешно обновлён")),
       );
     } catch (e) {
+      // А вот сюда теперь «поймается» любая ошибка
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Ошибка при сохранении: $e. Попробуйте повторить позже."),
-        ),
+        SnackBar(content: Text("Ошибка при сохранении: $e")),
       );
     }
   }
@@ -254,9 +284,10 @@ class _ProfileEditScreenState extends State<ProfileEditscreen> {
                     ],
                   ),
                   const SizedBox(height: 24.0),
-                  // Поле для номера телефона
+
                   _buildInputField(
                     child: IntlPhoneField(
+                      controller: _phoneController,
                       decoration: const InputDecoration(
                         labelText: 'Номер телефона',
                         border: InputBorder.none,
@@ -264,17 +295,47 @@ class _ProfileEditScreenState extends State<ProfileEditscreen> {
                             EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       ),
                       initialCountryCode: 'RU',
-                      onChanged: (phone) {
-                        _phoneNumber = phone.completeNumber;
-                      },
-                      validator: (phone) {
-                        if (phone == null || phone.number.isEmpty) {
-                          return 'Введите номер телефона';
-                        }
-                        return null;
-                      },
+                      initialValue: _phoneNumber, // ← здесь
+                      onChanged: (phone) => _phoneNumber = phone.completeNumber,
+                      onSaved: (phone) =>
+                          _phoneNumber = phone?.completeNumber ?? '',
+                      validator: (phone) =>
+                          phone == null || phone.number.isEmpty
+                              ? 'Введите номер телефона'
+                              : null,
                     ),
                   ),
+                  // Поле для Имени
+                  _buildInputField(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                      child: TextFormField(
+                        controller: _firstNameController,
+                        decoration: const InputDecoration(
+                          hintText: 'Имя',
+                          border: InputBorder.none,
+                        ),
+                        validator: (v) =>
+                            v!.trim().isEmpty ? 'Введите имя' : null,
+                      ),
+                    ),
+                  ),
+// Поле для Фамилии
+                  _buildInputField(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                      child: TextFormField(
+                        controller: _lastNameController,
+                        decoration: const InputDecoration(
+                          hintText: 'Фамилия',
+                          border: InputBorder.none,
+                        ),
+                        validator: (v) =>
+                            v!.trim().isEmpty ? 'Введите фамилию' : null,
+                      ),
+                    ),
+                  ),
+
                   // Поле для ввода города
                   _buildInputField(
                     child: Padding(

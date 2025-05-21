@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:davlat/src/exports.dart';
+import 'package:davlat/src/exports.dart'; // должно содержать CardScreen
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:davlat/src/data/db/database.dart';
@@ -13,7 +13,6 @@ class ScrollPage extends StatefulWidget {
 
 class _ScrollPageState extends State<ScrollPage> {
   List<Map<String, String>> scrollData = [];
-  // Множество для хранения лайкнутых изображений.
   final Set<String> likedImages = {};
   final DatabaseService _databaseService = DatabaseService();
   late PageController _pageController;
@@ -21,7 +20,6 @@ class _ScrollPageState extends State<ScrollPage> {
   @override
   void initState() {
     super.initState();
-    // Изначально инициализируем контроллер с базовой страницей.
     _pageController = PageController(initialPage: 0);
     _loadScrollData();
   }
@@ -32,7 +30,6 @@ class _ScrollPageState extends State<ScrollPage> {
     super.dispose();
   }
 
-  /// Загрузка данных из JSON-файла и перемешивание списка
   Future<void> _loadScrollData() async {
     try {
       final String jsonString =
@@ -46,12 +43,9 @@ class _ScrollPageState extends State<ScrollPage> {
             'price': item['price'] as String,
           };
         }).toList();
-        scrollData.shuffle(); // перемешиваем список
-
+        scrollData.shuffle();
         if (scrollData.isNotEmpty) {
-          // Если контроллер уже существует, освобождаем его
           _pageController.dispose();
-          // Создаем новый контроллер с начальной страницей для бесконечного скролла
           _pageController =
               PageController(initialPage: scrollData.length * 1000);
         }
@@ -65,44 +59,21 @@ class _ScrollPageState extends State<ScrollPage> {
     if (likedImages.contains(imagePath)) {
       showDialog(
         context: context,
-        builder: (context) {
-          return AlertDialog(
-            title: const Text('Внимание'),
-            content: const Text('Товар уже в избранном'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('ОК'),
-              ),
-            ],
-          );
-        },
+        builder: (_) => AlertDialog(
+          title: const Text('Внимание'),
+          content: const Text('Товар уже в избранном'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('ОК'),
+            ),
+          ],
+        ),
       );
       return;
-    } else {
-      await _databaseService.addFavorite(imagePath);
-      setState(() {
-        likedImages.add(imagePath);
-      });
     }
-  }
-
-  Future<void> _addToBasket(
-      String imagePath, String shoeName, String priceStr) async {
-    // Удаляем все символы, кроме цифр и точки, чтобы корректно распарсить цену.
-    final cleanPriceStr = priceStr.replaceAll(RegExp(r'[^0-9.]'), '');
-    final price = double.tryParse(cleanPriceStr) ?? 0.0;
-    await _databaseService.addToBasket(
-      productId: shoeName, // Лучше использовать уникальный ID, если есть
-      name: shoeName,
-      price: price,
-      size: "9.5",
-      color: "красный",
-      imagePath: imagePath,
-    );
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Товар добавлен в корзину')),
-    );
+    await _databaseService.addFavorite(imagePath);
+    setState(() => likedImages.add(imagePath));
   }
 
   @override
@@ -121,11 +92,12 @@ class _ScrollPageState extends State<ScrollPage> {
           final currentIndex = index % scrollData.length;
           final imagePath = scrollData[currentIndex]['image']!;
           final shoeName = scrollData[currentIndex]['name']!;
-          final price = scrollData[currentIndex]['price']!;
-          final isLiked = likedImages.contains(imagePath);
           final priceStr = scrollData[currentIndex]['price']!;
           final cleanPriceStr = priceStr.replaceAll(RegExp(r'[^0-9.]'), '');
           final priceValue = double.tryParse(cleanPriceStr) ?? 0.0;
+          final displayPrice = priceValue.toStringAsFixed(0);
+          final isLiked = likedImages.contains(imagePath);
+
           final product = <String, dynamic>{
             'id': shoeName,
             'name': shoeName,
@@ -134,15 +106,17 @@ class _ScrollPageState extends State<ScrollPage> {
             if (scrollData[currentIndex].containsKey('discount'))
               'discount': scrollData[currentIndex]['discount'],
           };
+
           return Stack(
             children: [
-              // Обработчик двойного клика на изображение
               GestureDetector(
-                onTap: () async {
+                onTap: () {
                   Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => CardScreen(product: product)));
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => CardScreen(product: product),
+                    ),
+                  );
                 },
                 onDoubleTap: () => _toggleLike(imagePath),
                 child: Center(
@@ -178,7 +152,7 @@ class _ScrollPageState extends State<ScrollPage> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      price,
+                      '$displayPrice ₽',
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         fontSize: 20,
@@ -212,12 +186,17 @@ class _ScrollPageState extends State<ScrollPage> {
                     ),
                     IconButton(
                       icon: const Icon(
-                        Icons.shopping_cart,
+                        Icons.photo_size_select_small,
                         size: 40,
                         color: Colors.black,
                       ),
-                      onPressed: () async {
-                        await _addToBasket(imagePath, shoeName, price);
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => CardScreen(product: product),
+                          ),
+                        );
                       },
                     ),
                   ],

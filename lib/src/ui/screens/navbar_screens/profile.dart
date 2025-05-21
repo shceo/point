@@ -1,15 +1,10 @@
 import 'package:davlat/src/exports.dart';
+import 'package:davlat/src/ui/screens/forloyality_screen.dart';
 import 'package:davlat/src/ui/screens/history.dart';
 import 'package:davlat/src/ui/screens/obratini_svyaz.dart';
-import 'package:davlat/src/ui/screens/profile_editscreen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
-// Предполагается, что LoginPage и LikePage существуют и импортированы
-// import 'package:davlat/src/ui/screens/login_page.dart';
-// import 'package:davlat/src/ui/screens/like_page.dart';
 
 class Profile extends StatefulWidget {
   const Profile({super.key});
@@ -40,7 +35,6 @@ class _ProfileState extends State<Profile> {
             .collection('users')
             .doc(user.uid)
             .get();
-        // проверяем, что State всё ещё в дереве
         if (!mounted) return;
         setState(() {
           _loyalty = (doc.data()?['loyalty'] as int?) ?? 0;
@@ -58,50 +52,6 @@ class _ProfileState extends State<Profile> {
         setState(() => _loyalty = 0);
         return;
       }
-    }
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Если пользователь не залогинен и диалог ещё не показывался, показываем его.
-    User? user = FirebaseAuth.instance.currentUser;
-    if (user == null && !_dialogShown) {
-      _dialogShown = true;
-      Future.delayed(Duration.zero, () {
-        if (!mounted) return;
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) {
-            return AlertDialog(
-              title: const Text('Внимание'),
-              content: const Text(
-                  'Для доступа к профилю необходимо войти в аккаунт или зарегистрироваться.'),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => LoginPage(),
-                      ),
-                    );
-                  },
-                  child: const Text('Войти'),
-                ),
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
-                  child: const Text('Напомни позже'),
-                ),
-              ],
-            );
-          },
-        );
-      });
     }
   }
 
@@ -128,18 +78,32 @@ class _ProfileState extends State<Profile> {
     if (shouldSignOut == true) {
       await FirebaseAuth.instance.signOut();
       if (!mounted) return;
-      setState(() {}); // перерисуем после выхода
+      setState(() {
+        _dialogShown = false; // Сбросим флаг, чтобы снова показать диалог
+      });
     }
   }
 
   Future<void> _addLoyaltyPoints(int points) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
-    final ref = FirebaseFirestore.instance.collection('users').doc(user.uid);
-    await ref.set(
+    final userRef =
+        FirebaseFirestore.instance.collection('users').doc(user.uid);
+
+    // 1) Увеличиваем общий баланс
+    await userRef.set(
       {'loyalty': FieldValue.increment(points)},
       SetOptions(merge: true),
     );
+
+    // 2) Добавляем запись в историю
+    await userRef.collection('loyaltyHistory').add({
+      'points': points,
+      'action':
+          'Начисление за действие', // например, 'Оплата', 'Вход', 'Регистрация' и т.д.
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+
     if (!mounted) return;
     setState(() {
       _loyalty += points;
@@ -152,7 +116,41 @@ class _ProfileState extends State<Profile> {
     final List<Map<String, dynamic>> favoriteProducts = [];
     List<Map<String, dynamic>> myOrders =
         []; // или заполняется реальными данными
-
+    if (FirebaseAuth.instance.currentUser == null && !_dialogShown) {
+      _dialogShown = true;
+      Future.microtask(() {
+        if (!mounted) return;
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) {
+            return AlertDialog(
+              title: const Text('Внимание'),
+              content: const Text(
+                  'Для доступа к профилю необходимо войти в аккаунт или зарегистрироваться.'),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => LoginPage()),
+                    );
+                  },
+                  child: const Text('Войти'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Напомни позже'),
+                ),
+              ],
+            );
+          },
+        );
+      });
+    }
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -168,68 +166,78 @@ class _ProfileState extends State<Profile> {
           child: Column(
             children: [
               // Верхняя панель с данными пользователя
-              Stack(
-                children: [
-                  Container(
-                    width: MediaQuery.of(context).size.width,
-                    height: 100,
-                    decoration: BoxDecoration(
-                      color: const Color.fromARGB(255, 33, 17, 255),
-                      borderRadius: BorderRadius.circular(12),
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ProfileEditscreen(),
                     ),
-                  ),
-                  Row(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Image.asset(
-                          'assets/images/profile.png',
-                          width: 60,
-                          height: 60,
+                  );
+                },
+                child: Stack(
+                  children: [
+                    Container(
+                      width: MediaQuery.of(context).size.width,
+                      height: 100,
+                      decoration: BoxDecoration(
+                        color: const Color.fromARGB(255, 33, 17, 255),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Image.asset(
+                            'assets/images/profile.png',
+                            width: 60,
+                            height: 60,
+                          ),
                         ),
-                      ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            user?.displayName ?? 'Войдите в аккаунт',
-                            style: GoogleFonts.oswald(
-                              textStyle: const TextStyle(
-                                fontSize: 18,
-                                color: Colors.white,
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              user?.displayName ?? 'Войдите в аккаунт',
+                              style: GoogleFonts.oswald(
+                                textStyle: const TextStyle(
+                                  fontSize: 18,
+                                  color: Colors.white,
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            user?.email ?? 'Почта не указана',
-                            style: GoogleFonts.oswald(
-                              textStyle: const TextStyle(
-                                fontSize: 14,
-                                color: Colors.white70,
+                            const SizedBox(height: 4),
+                            Text(
+                              user?.email ?? 'Почта не указана',
+                              style: GoogleFonts.oswald(
+                                textStyle: const TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.white70,
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Бонусы за лояльность: $_loyalty',
-                            style: GoogleFonts.oswald(
-                              textStyle: const TextStyle(
-                                fontSize: 14,
-                                color: Colors.white70,
+                            const SizedBox(height: 4),
+                            Text(
+                              'Ваши бонусы: $_loyalty',
+                              style: GoogleFonts.oswald(
+                                textStyle: const TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.white70,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const Spacer(),
-                      IconButton(
-                        icon: Image.asset('assets/icons/in.png'),
-                        onPressed: () {},
-                      ),
-                    ],
-                  ),
-                ],
+                          ],
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          icon: Image.asset('assets/icons/in.png'),
+                          onPressed: () {},
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 30),
               // Верхняя секция кнопок профиля (отдельный контейнер)
@@ -257,12 +265,12 @@ class _ProfileState extends State<Profile> {
                         height: 24,
                       ),
                       title: Text(
-                        'Об аккаунте',
+                        'Программа лояльности',
                         style: GoogleFonts.oswald(
                             textStyle: const TextStyle(fontSize: 16)),
                       ),
                       subtitle: Text(
-                        'Изменить данные об аккаунте',
+                        'Ваши бонусы за ваши покупки',
                         style: GoogleFonts.oswald(
                             textStyle: const TextStyle(
                                 fontSize: 14, color: Colors.grey)),
@@ -274,11 +282,11 @@ class _ProfileState extends State<Profile> {
                       ),
                       onTap: () {
                         Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const ProfileEditscreen(),
-                          ),
-                        );
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  ForloyalityScreen(loyalty: _loyalty),
+                            ));
                       },
                     ),
                     const Divider(color: Colors.grey, height: 1),
@@ -349,7 +357,7 @@ class _ProfileState extends State<Profile> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => OrderHis(),
+                            builder: (context) => const OrderHis(),
                           ),
                         );
                       },
@@ -383,7 +391,6 @@ class _ProfileState extends State<Profile> {
                 ),
                 child: Column(
                   children: [
-                    // Обратная связь
                     ListTile(
                       leading: Image.asset(
                         'assets/icons/notif.png',

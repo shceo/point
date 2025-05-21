@@ -195,16 +195,14 @@ class LoginScreen extends StatelessWidget {
                       .signInWithEmailAndPassword(
                           email: emailController.text,
                           password: passwordController.text);
-                  if (user != null) {
-                    showToast('Успешный вход');
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => AfterSplashscreen(),
-                      ),
-                    );
-                  }
-                } on FirebaseAuthException catch (e) {
+                  showToast('Успешный вход');
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => AfterSplashscreen(),
+                    ),
+                  );
+                                } on FirebaseAuthException catch (e) {
                   if (e.code == 'user-not-found') {
                     showToast('Пользователь не найден');
                   } else if (e.code == 'wrong-password') {

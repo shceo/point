@@ -13,8 +13,6 @@ class BagScreen extends StatefulWidget {
 class _BagScreenState extends State<BagScreen> {
   final DatabaseService _databaseService = DatabaseService();
   List<Map<String, dynamic>> bagItems = [];
-  final List<double> _femaleSizes = [35, 36, 37, 38, 39, 40];
-  final List<double> _maleSizes = [40, 41, 42, 43, 44, 45];
 
   @override
   void initState() {
@@ -75,125 +73,8 @@ class _BagScreenState extends State<BagScreen> {
     });
   }
 
-  Future<void> _showParameterDialog(int index) async {
-    // 1) Выбор пола
-    final gender = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("Выберите пол"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            RadioListTile<String>(
-              title: const Text("Мужской"),
-              value: "Мужской",
-              groupValue: bagItems[index]['gender'] as String?,
-              onChanged: (v) => Navigator.pop(ctx, v),
-            ),
-            RadioListTile<String>(
-              title: const Text("Женский"),
-              value: "Женский",
-              groupValue: bagItems[index]['gender'] as String?,
-              onChanged: (v) => Navigator.pop(ctx, v),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (gender == null) return;
-    setState(() => bagItems[index]['gender'] = gender);
 
-    // 2) Выбор размера в зависимости от пола
-    final sizes = gender == "Женский" ? _femaleSizes : _maleSizes;
-    final currentSize = bagItems[index]['size'] as double?;
-    final size = await showDialog<double>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("Выберите размер"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: sizes.map((s) {
-            return RadioListTile<double>(
-              title: Text(s.toString()),
-              value: s,
-              groupValue: currentSize,
-              onChanged: (v) => Navigator.pop(ctx, v),
-            );
-          }).toList(),
-        ),
-      ),
-    );
-    if (size == null) return;
-    setState(() => bagItems[index]['size'] = size);
-  }
-
-  /// Показывает диалог выбора параметров (в данном случае — пола)
-  // Future<void> _showParameterDialog(int index) async {
-  //   String? selectedGender = bagItems[index]['gender'];
-  //   await showDialog(
-  //     context: context,
-  //     builder: (BuildContext context) {
-  //       return AlertDialog(
-  //         title: const Text("Выберите пол"),
-  //         content: Column(
-  //           mainAxisSize: MainAxisSize.min,
-  //           children: [
-  //             RadioListTile<String>(
-  //               title: const Text("Мужской"),
-  //               value: "Мужской",
-  //               groupValue: selectedGender,
-  //               onChanged: (String? value) {
-  //                 setState(() {
-  //                   selectedGender = value;
-  //                 });
-  //                 Navigator.of(context).pop();
-  //               },
-  //             ),
-  //             RadioListTile<String>(
-  //               title: const Text("Женский"),
-  //               value: "Женский",
-  //               groupValue: selectedGender,
-  //               onChanged: (String? value) {
-  //                 setState(() {
-  //                   selectedGender = value;
-  //                 });
-  //                 Navigator.of(context).pop();
-  //               },
-  //             ),
-  //           ],
-  //         ),
-  //       );
-  //     },
-  //   );
-  //   if (selectedGender != null) {
-  //     setState(() {
-  //       bagItems[index]['gender'] = selectedGender;
-  //       // При необходимости можно сохранить параметры в БД:
-  //       // _databaseService.updateBasketItemParameter(bagItems[index]['id'], 'gender', selectedGender);
-  //     });
-  //   }
-  // }
-
-  /// Проверяет, что у всех товаров выбран пол, иначе выводит предупреждение
   void _onPayPressed() {
-    bool allParamsSelected = true;
-    for (var item in bagItems) {
-      if (item['gender'] == null) {
-        allParamsSelected = false;
-        break;
-      }
-    }
-    if (!allParamsSelected) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-              "Не выбраны все параметры обуви. Пожалуйста, нажмите на товар, чтобы выбрать."),
-          duration: Duration(seconds: 5),
-        ),
-      );
-      return;
-    }
-
     if (bagItems.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -205,8 +86,8 @@ class _BagScreenState extends State<BagScreen> {
       Navigator.push(
         context,
         MaterialPageRoute(
-            builder: (context) =>
-                PaymentScreen(totalAmount: _calculateTotal())),
+          builder: (context) => PaymentScreen(totalAmount: _calculateTotal()),
+        ),
       );
     }
   }
@@ -236,9 +117,13 @@ class _BagScreenState extends State<BagScreen> {
                     final item = bagItems[index];
                     final image = item['imagePath'] ?? '';
                     final name = item['name'] ?? 'Без имени';
-                    final price = item['price'] ?? 0;
+                    final price = item['price'] ?? 0.0;
                     final counter = item['counter'] ?? 1;
-                    // Оборачиваем в InkWell для обработки клика
+                    final size = item['size'] != null
+                        ? (item['size'] as double).toInt()
+                        : null;
+                    final color = item['color'] ?? '';
+
                     return Dismissible(
                       key: ValueKey(item['id'].toString()),
                       direction: DismissDirection.endToStart,
@@ -253,7 +138,7 @@ class _BagScreenState extends State<BagScreen> {
                         ),
                       ),
                       child: InkWell(
-                        onTap: () => _showParameterDialog(index),
+                        onTap: null, // убираем диалог выбора
                         child: Card(
                           elevation: 3,
                           margin: const EdgeInsets.symmetric(
@@ -283,25 +168,20 @@ class _BagScreenState extends State<BagScreen> {
                                       ),
                                       const SizedBox(height: 8),
                                       Text(
-                                        '${(price * counter).toStringAsFixed(2)} \$',
+                                        '${(price * counter).toStringAsFixed(0)} ₽',
                                         style: const TextStyle(
                                           fontSize: 16,
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
-                                      // Показываем выбранный пол (если есть)
-                                      if (item['gender'] != null)
-                                        Padding(
-                                          padding:
-                                              const EdgeInsets.only(top: 4),
-                                          child: Text(
-                                            "Пол: ${item['gender']}",
-                                            style: const TextStyle(
-                                              color: Colors.black54,
-                                              fontSize: 14,
-                                            ),
-                                          ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Цвет: $color, Размер: ${size ?? '-'}',
+                                        style: const TextStyle(
+                                          color: Colors.black54,
+                                          fontSize: 14,
                                         ),
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -359,14 +239,14 @@ class _BagScreenState extends State<BagScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'Весь ваш товар',
+                        'Стоимость заказа:',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 14,
                         ),
                       ),
                       Text(
-                        '${totalAmount.toStringAsFixed(2)} \$',
+                        '${totalAmount.toStringAsFixed(0)} ₽',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 20,
