@@ -29,8 +29,9 @@ class _LikePageState extends State<LikePage> {
 
   Future<void> _removeFromFavorites(String imagePath) async {
     await _databaseService.removeFavoriteLocal(imagePath);
+    final updated = await _databaseService.getFavoritesLocal();
     setState(() {
-      likedProducts = [];
+      likedProducts = updated;
     });
   }
 
@@ -38,8 +39,9 @@ class _LikePageState extends State<LikePage> {
     for (var p in likedProducts) {
       await _databaseService.removeFavoriteLocal(p['imagePath']);
     }
+    final updated = await _databaseService.getFavoritesLocal();
     setState(() {
-      likedProducts = [];
+      likedProducts = updated;
     });
   }
 
