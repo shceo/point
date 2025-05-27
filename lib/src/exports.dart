@@ -21,7 +21,6 @@ export 'package:davlat/src/ui/screens/navbar_screens/bag_screen.dart';
 export 'package:davlat/src/ui/screens/payment_screen.dart';
 export 'package:davlat/src/firebase_options.dart';
 export 'package:davlat/src/ui/screens/card.dart';
-export 'package:davlat/src/ui/screens/personal_question.dart';
 export 'package:davlat/src/data/bloc/authorization_bloc/authentication_bloc.dart';
 
 

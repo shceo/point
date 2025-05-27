@@ -19,16 +19,14 @@ class _OrderHisState extends State<OrderHis> {
     _ordersFuture = _loadAllOrders();
   }
 
-  /// Загружает локальные + удалённые (Firestore) заказы
   Future<List<Map<String, dynamic>>> _loadAllOrders() async {
     // 1) локальные
     final local = await DatabaseService().getOrders();
 
-    // 2) из Firestore, если есть залогиненный пользователь
+    // 2) удалённые
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      return local;
-    }
+    if (user == null) return local;
+
     final snap = await FirebaseFirestore.instance
         .collection('users')
         .doc(user.uid)
@@ -38,17 +36,29 @@ class _OrderHisState extends State<OrderHis> {
     final remote = snap.docs.map((doc) {
       final data = doc.data();
       return {
-        'imagePath': data['imagePath'] as String? ?? '',
-        'name': data['name'] as String? ?? '',
+        'imagePath': data['imagePath'] ?? '',
+        'name': data['name'] ?? '',
         'price': (data['price'] as num?)?.toDouble() ?? 0.0,
-        'counter': data['counter'] as int? ?? 1,
-        'size': data['size'] as String? ?? '',
-        'color': data['color'] as String? ?? '',
+        'counter': data['counter'] ?? 1,
+        'size': data['size'] ?? '',
+        'color': data['color'] ?? '',
       };
     }).toList();
 
-    // объединим: Firestore + локальные (локальные могут быть устаревшими, но сохраняем оба)
-    return [...remote, ...local];
+    // 3) фильтрация: исключаем дубли из local, если уже есть такой в remote
+    final merged = [...remote];
+    for (final l in local) {
+      final isDuplicate = remote.any((r) =>
+          r['imagePath'] == l['imagePath'] &&
+          r['name'] == l['name'] &&
+          r['size'] == l['size'] &&
+          r['color'] == l['color']);
+      if (!isDuplicate) {
+        merged.add(l);
+      }
+    }
+
+    return merged;
   }
 
   @override

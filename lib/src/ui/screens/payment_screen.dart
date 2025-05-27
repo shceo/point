@@ -66,6 +66,26 @@ class _PaymentScreenState extends State<PaymentScreen> {
   late final WebViewController _controller;
   String? _url;
   bool _loading = true;
+  Future<void> _addLoyaltyPoints(int points) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final userRef =
+        FirebaseFirestore.instance.collection('users').doc(user.uid);
+
+    // Увеличиваем общий баланс
+    await userRef.set(
+      {'loyalty': FieldValue.increment(points)},
+      SetOptions(merge: true),
+    );
+
+    // Добавляем запись в историю
+    await userRef.collection('loyaltyHistory').add({
+      'points': points,
+      'action': 'Начисление за покупку',
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+  }
 
   @override
   void initState() {
@@ -127,6 +147,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
         });
       }
     }
+    // 2.5) Начисляем баллы
+    final totalPoints = basket.fold<int>(
+        0, (sum, item) => sum + ((item['price'] as num?)?.round() ?? 0) ~/ 10);
+    if (user != null && totalPoints > 0) {
+      await _addLoyaltyPoints(totalPoints);
+    }
 
     // 3) Очищаем локальную корзину
     await db.clearBasket();
@@ -144,7 +170,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
             onPressed: () {
               Navigator.of(context)
                 ..pop() // закрыть диалог
-                ..pop(); // вернуться из PaymentScreen
+                ..pop(true); // вернуться из PaymentScreen
             },
             child: const Text('OK'),
           ),

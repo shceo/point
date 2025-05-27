@@ -73,8 +73,7 @@ class _BagScreenState extends State<BagScreen> {
     });
   }
 
-
-  void _onPayPressed() {
+  void _onPayPressed() async {
     if (bagItems.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -83,12 +82,17 @@ class _BagScreenState extends State<BagScreen> {
         ),
       );
     } else {
-      Navigator.push(
+      final result = await Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => PaymentScreen(totalAmount: _calculateTotal()),
         ),
       );
+
+      // Если оплата прошла — обновляем корзину
+      if (result == true) {
+        await _loadBagItems();
+      }
     }
   }
 
