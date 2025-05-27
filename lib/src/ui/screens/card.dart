@@ -312,7 +312,7 @@ class _CardScreenState extends State<CardScreen>
 
             // DragTarget + кнопка «Добавить в корзину»
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              padding: const EdgeInsets.symmetric(horizontal: 12.0),
               child: DragTarget<Map<String, dynamic>>(
                 onAccept: (_) => _addToBasket(),
                 builder: (context, candidateData, rejectedData) {
@@ -325,7 +325,7 @@ class _CardScreenState extends State<CardScreen>
                         children: [
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                vertical: 18, horizontal: 16),
+                                vertical: 10, horizontal: 16),
                             decoration: BoxDecoration(
                               color: Colors.black87,
                               borderRadius: BorderRadius.circular(22),

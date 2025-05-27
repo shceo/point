@@ -1,8 +1,11 @@
+import 'dart:convert';
+
 import 'package:davlat/src/exports.dart';
 import 'package:davlat/src/ui/screens/forloyality_screen.dart';
 import 'package:davlat/src/ui/screens/history.dart';
 import 'package:davlat/src/ui/screens/obratini_svyaz.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -17,10 +20,40 @@ class _ProfileState extends State<Profile> {
   bool _dialogShown = false;
   int _loyalty = 0;
 
+  List<String> _favImages = [];
+  List<String> _favNames = [];
   @override
   void initState() {
     super.initState();
     _loadLoyalty();
+    _loadFavorites();
+  }
+
+  Future<void> _loadFavorites() async {
+    // 1) получаем все записи избранного
+    final favDocs = await DatabaseService().getFavoritesLocal();
+
+    // 2) достаём пути и имена напрямую из базы
+    final images = <String>[];
+    final names = <String>[];
+
+    for (final doc in favDocs) {
+      final path = doc['imagePath'];
+      final name = doc['name'];
+
+      if (path is String) images.add(path);
+      if (name is String && name.trim().isNotEmpty) {
+        names.add(name);
+      } else {
+        names.add('Товар'); // fallback
+      }
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _favImages = images;
+      _favNames = names;
+    });
   }
 
   Future<void> _loadLoyalty() async {
@@ -126,8 +159,8 @@ class _ProfileState extends State<Profile> {
           builder: (context) {
             return AlertDialog(
               title: const Text('Войдите в аккаунт'),
-              content: const Text(
-                  'Для доступа к профилю необходимо авторизоваться'),
+              content:
+                  const Text('Для доступа к профилю необходимо авторизоваться'),
               actions: [
                 TextButton(
                   onPressed: () {
@@ -300,13 +333,15 @@ class _ProfileState extends State<Profile> {
                       title: Text(
                         'Избранное',
                         style: GoogleFonts.oswald(
-                            textStyle: const TextStyle(fontSize: 16)),
+                          textStyle: const TextStyle(fontSize: 16),
+                        ),
                       ),
                       subtitle: Text(
-                        'Список с понравшимися вам товарами',
+                        'Список с понравившимися товарами',
                         style: GoogleFonts.oswald(
-                            textStyle: const TextStyle(
-                                fontSize: 14, color: Colors.grey)),
+                          textStyle:
+                              const TextStyle(fontSize: 14, color: Colors.grey),
+                        ),
                       ),
                       trailing: Image.asset(
                         'assets/icons/arrow.png',
@@ -317,18 +352,12 @@ class _ProfileState extends State<Profile> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => LikePage(
-                              likedImages: favoriteProducts
-                                  .map<String>((p) => p['image'] as String)
-                                  .toList(),
-                              likedNames: favoriteProducts
-                                  .map<String>((p) => p['name'] as String)
-                                  .toList(),
-                            ),
+                            builder: (context) => const LikePage(),
                           ),
                         );
                       },
                     ),
+
                     const Divider(color: Colors.grey, height: 1),
                     // 3. История заказов
                     ListTile(

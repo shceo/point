@@ -1,14 +1,14 @@
 import 'dart:convert';
-import 'package:davlat/src/exports.dart'; // должно содержать CardScreen
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:davlat/src/data/db/database.dart';
+import 'package:davlat/src/exports.dart'; // должен экспортировать CardScreen
 
 class ScrollPage extends StatefulWidget {
   const ScrollPage({Key? key}) : super(key: key);
 
   @override
-  _ScrollPageState createState() => _ScrollPageState();
+  State<ScrollPage> createState() => _ScrollPageState();
 }
 
 class _ScrollPageState extends State<ScrollPage> {
@@ -20,42 +20,40 @@ class _ScrollPageState extends State<ScrollPage> {
   @override
   void initState() {
     super.initState();
-    _pageController = PageController(initialPage: 0);
-    _loadScrollData();
-  }
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
+    _pageController = PageController();
+    _loadScrollData().then((_) => _loadLikedFromDb());
   }
 
   Future<void> _loadScrollData() async {
     try {
-      final String jsonString =
+      final jsonString =
           await rootBundle.loadString('assets/data/scroll_data.json');
-      final List<dynamic> jsonData = json.decode(jsonString);
+      final List<dynamic> jsonList = json.decode(jsonString);
       setState(() {
-        scrollData = jsonData.map<Map<String, String>>((item) {
-          return {
+        scrollData = jsonList.map<Map<String, String>>((item) {
+          final map = <String, String>{
             'image': item['image'] as String,
             'name': item['name'] as String,
-            'price': item['price'] as String,
+            'price': item['price'].toString(),
           };
+          if (item.containsKey('discount')) {
+            map['discount'] = item['discount'].toString();
+          }
+          return map;
         }).toList();
         scrollData.shuffle();
-        if (scrollData.isNotEmpty) {
-          _pageController.dispose();
-          _pageController =
-              PageController(initialPage: scrollData.length * 1000);
-        }
       });
+      if (scrollData.isNotEmpty) {
+        _pageController.dispose();
+        _pageController = PageController(initialPage: scrollData.length * 1000);
+      }
     } catch (e) {
       debugPrint('Ошибка загрузки JSON: $e');
     }
   }
 
-  Future<void> _toggleLike(String imagePath) async {
+  Future<void> _toggleLike(String imagePath, String shoeName, String priceStr,
+      [String? discount]) async {
     if (likedImages.contains(imagePath)) {
       showDialog(
         context: context,
@@ -72,8 +70,81 @@ class _ScrollPageState extends State<ScrollPage> {
       );
       return;
     }
-    await _databaseService.addFavorite(imagePath);
-    setState(() => likedImages.add(imagePath));
+
+    final cleanPriceStr = priceStr.replaceAll(RegExp(r'[^0-9.]'), '');
+    final price = double.tryParse(cleanPriceStr) ?? 0.0;
+
+    final Map<String, dynamic> product = {
+      'image': imagePath,
+      'name': shoeName,
+      'price': price,
+      if (discount != null) 'discount': discount,
+    };
+
+    await _databaseService.addFavoriteLocal(product);
+
+    setState(() {
+      likedImages.add(imagePath);
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Товар добавлен в избранное')),
+    );
+  }
+
+  Future<void> _loadLikedFromDb() async {
+    final favs = await _databaseService.getFavoritesLocal();
+    setState(() {
+      likedImages
+        ..clear()
+        ..addAll(favs.map((e) => e['imagePath'] as String));
+    });
+  }
+
+  // Future<void> _toggleLike(String imagePath, String shoeName, String priceStr,
+  //     [String? discount]) async {
+  //   if (likedImages.contains(imagePath)) {
+  //     showDialog(
+  //       context: context,
+  //       builder: (_) => AlertDialog(
+  //         title: const Text('Внимание'),
+  //         content: const Text('Товар уже в избранном'),
+  //         actions: [
+  //           TextButton(
+  //             onPressed: () => Navigator.pop(context),
+  //             child: const Text('ОК'),
+  //           ),
+  //         ],
+  //       ),
+  //     );
+  //     return;
+  //   }
+
+  //   final cleanPriceStr = priceStr.replaceAll(RegExp(r'[^0-9.]'), '');
+  //   final price = double.tryParse(cleanPriceStr) ?? 0.0;
+
+  //   final Map<String, dynamic> product = {
+  //     'image': imagePath,
+  //     'name': shoeName,
+  //     'price': price,
+  //     if (discount != null) 'discount': discount,
+  //   };
+
+  //   await _databaseService.addFavoriteFull(product);
+
+  //   setState(() {
+  //     likedImages.add(imagePath);
+  //   });
+
+  //   ScaffoldMessenger.of(context).showSnackBar(
+  //     const SnackBar(content: Text('Товар добавлен в избранное')),
+  //   );
+  // }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
   }
 
   @override
@@ -90,21 +161,22 @@ class _ScrollPageState extends State<ScrollPage> {
         scrollDirection: Axis.vertical,
         itemBuilder: (context, index) {
           final currentIndex = index % scrollData.length;
-          final imagePath = scrollData[currentIndex]['image']!;
-          final shoeName = scrollData[currentIndex]['name']!;
-          final priceStr = scrollData[currentIndex]['price']!;
-          final cleanPriceStr = priceStr.replaceAll(RegExp(r'[^0-9.]'), '');
-          final priceValue = double.tryParse(cleanPriceStr) ?? 0.0;
+          final item = scrollData[currentIndex];
+          final imagePath = item['image']!;
+          final shoeName = item['name']!;
+          final priceStr = item['price']!;
+          final cleanPrice = priceStr.replaceAll(RegExp(r'[^0-9.]'), '');
+          final priceValue = double.tryParse(cleanPrice) ?? 0.0;
           final displayPrice = priceValue.toStringAsFixed(0);
           final isLiked = likedImages.contains(imagePath);
+          final discount = item['discount'];
 
           final product = <String, dynamic>{
             'id': shoeName,
             'name': shoeName,
             'price': priceValue,
             'image': imagePath,
-            if (scrollData[currentIndex].containsKey('discount'))
-              'discount': scrollData[currentIndex]['discount'],
+            if (discount != null) 'discount': discount,
           };
 
           return Stack(
@@ -118,7 +190,6 @@ class _ScrollPageState extends State<ScrollPage> {
                     ),
                   );
                 },
-                onDoubleTap: () => _toggleLike(imagePath),
                 child: Center(
                   child: Image.asset(
                     imagePath,
@@ -171,8 +242,8 @@ class _ScrollPageState extends State<ScrollPage> {
               ),
               Positioned(
                 bottom: 50,
-                right: 20,
                 left: 20,
+                right: 20,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -182,7 +253,12 @@ class _ScrollPageState extends State<ScrollPage> {
                         size: 40,
                         color: isLiked ? Colors.red : Colors.black,
                       ),
-                      onPressed: () => _toggleLike(imagePath),
+                      onPressed: () => _toggleLike(
+                        imagePath,
+                        shoeName,
+                        priceStr,
+                        discount,
+                      ),
                     ),
                     IconButton(
                       icon: const Icon(

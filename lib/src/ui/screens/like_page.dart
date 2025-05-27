@@ -1,16 +1,10 @@
-import 'package:davlat/src/exports.dart'; // Должен экспортировать CardScreen
-import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:davlat/src/data/db/database.dart';
+import 'package:davlat/src/exports.dart';
 
 class LikePage extends StatefulWidget {
-  final List<String> likedImages;
-  final List<String> likedNames;
-
-  const LikePage({
-    super.key,
-    required this.likedImages,
-    required this.likedNames,
-  });
+  const LikePage({super.key});
 
   @override
   State<LikePage> createState() => _LikePageState();
@@ -18,34 +12,34 @@ class LikePage extends StatefulWidget {
 
 class _LikePageState extends State<LikePage> {
   final DatabaseService _databaseService = DatabaseService();
-  late List<String> likedImages;
-  late List<String> likedNames;
+  List<Map<String, dynamic>> likedProducts = [];
 
   @override
   void initState() {
     super.initState();
-    likedImages = List.from(widget.likedImages);
-    likedNames = List.from(widget.likedNames);
+    _loadFavorites();
+  }
+
+  Future<void> _loadFavorites() async {
+    final favs = await _databaseService.getFavoritesLocal();
+    setState(() {
+      likedProducts = favs;
+    });
   }
 
   Future<void> _removeFromFavorites(String imagePath) async {
-    await _databaseService.removeFavorite(imagePath);
+    await _databaseService.removeFavoriteLocal(imagePath);
     setState(() {
-      final idx = likedImages.indexOf(imagePath);
-      if (idx != -1) {
-        likedImages.removeAt(idx);
-        likedNames.removeAt(idx);
-      }
+      likedProducts = [];
     });
   }
 
   Future<void> _clearFavorites() async {
-    for (var imagePath in List<String>.from(likedImages)) {
-      await _databaseService.removeFavorite(imagePath);
+    for (var p in likedProducts) {
+      await _databaseService.removeFavoriteLocal(p['imagePath']);
     }
     setState(() {
-      likedImages.clear();
-      likedNames.clear();
+      likedProducts = [];
     });
   }
 
@@ -53,7 +47,11 @@ class _LikePageState extends State<LikePage> {
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: () async {
-        Navigator.pop(context, likedImages);
+        // Возвращаем только список imagePath при выходе назад
+        final updatedImagePaths = likedProducts
+            .map((product) => product['imagePath'] as String)
+            .toList();
+        Navigator.pop(context, updatedImagePaths);
         return false;
       },
       child: Scaffold(
@@ -61,15 +59,15 @@ class _LikePageState extends State<LikePage> {
           title: Text('Избранное', style: GoogleFonts.oswald()),
           centerTitle: true,
           actions: [
-            if (likedImages.isNotEmpty)
+            if (likedProducts.isNotEmpty)
               IconButton(
                 icon: const Icon(Icons.delete_sweep),
-                onPressed: _clearFavorites,
                 tooltip: 'Очистить избранное',
+                onPressed: _clearFavorites,
               ),
           ],
         ),
-        body: likedImages.isEmpty
+        body: likedProducts.isEmpty
             ? Center(
                 child: Text(
                   'Нет избранных кроссовок',
@@ -82,14 +80,17 @@ class _LikePageState extends State<LikePage> {
                 ),
               )
             : ListView.builder(
-                itemCount: likedImages.length,
+                itemCount: likedProducts.length,
                 itemBuilder: (context, index) {
-                  final imagePath = likedImages[index];
-                  final shoeName = likedNames[index];
+                  final product = likedProducts[index];
+                  final imagePath = product['imagePath'];
+                  final name = product['name'] ?? 'Товар';
+                  final price = product['price'] ?? 0.0;
+
                   return Dismissible(
                     key: ValueKey(imagePath),
                     direction: DismissDirection.endToStart,
-                    onDismissed: (direction) => _removeFromFavorites(imagePath),
+                    onDismissed: (_) => _removeFromFavorites(imagePath),
                     background: Container(
                       color: Colors.red,
                       alignment: Alignment.centerRight,
@@ -104,28 +105,35 @@ class _LikePageState extends State<LikePage> {
                         contentPadding: const EdgeInsets.all(8),
                         leading: Image.asset(
                           imagePath,
-                          width: 100,
+                          width: 80,
+                          height: 80,
                           fit: BoxFit.cover,
                         ),
                         title: Text(
-                          shoeName,
+                          name,
                           style: GoogleFonts.oswald(
                             textStyle:
                                 const TextStyle(fontWeight: FontWeight.bold),
                           ),
                         ),
+                        subtitle: Text(
+                          '$price ₽',
+                          style: const TextStyle(color: Colors.grey),
+                        ),
                         onTap: () {
-                          final product = <String, dynamic>{
-                            'id': shoeName,
-                            'name': shoeName,
-                            'price': 0.0,
+                          final fullProduct = {
+                            'id': name,
+                            'name': name,
+                            'price': price,
                             'image': imagePath,
+                            if (product['discount'] != null)
+                              'discount': product['discount'],
                           };
                           Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (context) =>
-                                  CardScreen(product: product),
+                                  CardScreen(product: fullProduct),
                             ),
                           );
                         },

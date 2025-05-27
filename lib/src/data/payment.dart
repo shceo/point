@@ -6,8 +6,8 @@ import 'package:url_launcher/url_launcher.dart';
 
 
 class CassaRepo {
-  static String shopId = "1054000";
-  static String secretKey = "test_wdpD9DOXt65p1Tt02FK9LjGLyjbxz-19mYilgdc8Sj4";
+  static String shopId = "1053999";
+  static String secretKey = "test_iVXfpVrUuUMx8bZxlU78lHmTGIBc6FwITguV15PU6_w";
 
   static Future<void> createPayment(double amount) async {
     const String url = 'https://api.yookassa.ru/v3/payments';

@@ -15,6 +15,18 @@ class DatabaseService {
     return _database!;
   }
 
+  // Future<void> addFavoriteFull(Map<String, dynamic> product) async {
+  //   final user = FirebaseAuth.instance.currentUser;
+  //   if (user == null) return;
+
+  //   final ref = FirebaseFirestore.instance
+  //       .collection('users')
+  //       .doc(user.uid)
+  //       .collection('favorites');
+
+  //   await ref.doc(product['image']).set(product);
+  // }
+
   Future<Database> _initDatabase() async {
     final dbPath = await getDatabasesPath();
     return openDatabase(
@@ -23,11 +35,15 @@ class DatabaseService {
       onCreate: (db, version) async {
         // 1) Существующие таблицы
         await db.execute('''
-            CREATE TABLE favorites (
-              id INTEGER PRIMARY KEY AUTOINCREMENT,
-              imagePath TEXT NOT NULL
-            )
-          ''');
+  CREATE TABLE favorites (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    imagePath TEXT NOT NULL,
+    name TEXT,
+    price REAL,
+    discount TEXT
+  )
+''');
+
         await db.execute('''
             CREATE TABLE basket (
               id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -89,12 +105,32 @@ class DatabaseService {
     );
   }
 
-  Future<void> addFavorite(String imagePath) async {
+  // добавим полноценный локальный метод
+  Future<void> addFavoriteLocal(Map<String, dynamic> product) async {
     final db = await database;
     await db.insert(
       'favorites',
-      {'imagePath': imagePath},
+      {
+        'imagePath': product['image'],
+        'name': product['name'],
+        'price': product['price'],
+        'discount': product['discount'],
+      },
       conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> getFavoritesLocal() async {
+    final db = await database;
+    return await db.query('favorites');
+  }
+
+  Future<void> removeFavoriteLocal(String imagePath) async {
+    final db = await database;
+    await db.delete(
+      'favorites',
+      where: 'imagePath = ?',
+      whereArgs: [imagePath],
     );
   }
 
@@ -105,12 +141,6 @@ class DatabaseService {
       where: 'imagePath = ?',
       whereArgs: [imagePath],
     );
-  }
-
-  Future<List<String>> getFavorites() async {
-    final db = await database;
-    final maps = await db.query('favorites');
-    return List.generate(maps.length, (i) => maps[i]['imagePath'] as String);
   }
 
   Future<void> addToBasket({

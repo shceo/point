@@ -17,7 +17,7 @@ class _HomepageState extends State<Homepage> {
   final DatabaseService _databaseService = DatabaseService();
 
   final List<Map<String, dynamic>> bagItems = [];
-  final List<Map<String, dynamic>> favoriteProducts = [];
+  List<Map<String, dynamic>> favoriteProducts = [];
   List<Map<String, dynamic>> _categories = [];
   int _selectedTabIndex = 0;
 
@@ -61,21 +61,21 @@ class _HomepageState extends State<Homepage> {
 
   /// Загружает список избранного из БД и обновляет favoriteProducts
   Future<void> _loadFavorites() async {
-    final List<String> favImages = await _databaseService.getFavorites();
-    List<Map<String, dynamic>> favProducts = [];
-    for (var category in _categories) {
-      final products = category['products'] as List<dynamic>;
-      for (var prod in products) {
-        final p = prod as Map<String, dynamic>;
-        if (favImages.contains(p['image'] as String)) {
-          favProducts.add(p);
-        }
-      }
-    }
+    final favRecords = await _databaseService.getFavoritesLocal();
     setState(() {
       favoriteProducts
         ..clear()
-        ..addAll(favProducts);
+        ..addAll(favRecords.map((e) => {
+              'image': e['imagePath'],
+              'name': e['name'],
+              'price': e['price'],
+              if (e['discount'] != null) 'discount': e['discount'],
+            }));
+      // setState(() {
+      //   favoriteProducts
+      //     ..clear()
+      //     ..addAll(favProducts);
+      // });
     });
   }
 
@@ -109,7 +109,8 @@ class _HomepageState extends State<Homepage> {
       );
       return;
     }
-    await _databaseService.addFavorite(product['image'] as String);
+    await _databaseService.addFavoriteLocal(product);
+
     setState(() {
       favoriteProducts.add(product);
     });
@@ -139,19 +140,16 @@ class _HomepageState extends State<Homepage> {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => LikePage(
-          likedImages: favoriteProducts
-              .map<String>((p) => p['image'] as String)
-              .toList(),
-          likedNames:
-              favoriteProducts.map<String>((p) => p['name'] as String).toList(),
-        ),
+        builder: (context) => const LikePage(),
       ),
     );
+
+    // Обновляем список, если что-то удалили в LikePage
     if (result != null && result is List<String>) {
       setState(() {
-        favoriteProducts.removeWhere(
-            (product) => !result.contains(product['image'] as String));
+        favoriteProducts = List<Map<String, dynamic>>.from(favoriteProducts)
+          ..removeWhere(
+              (product) => !result.contains(product['image'] as String));
       });
     }
   }
