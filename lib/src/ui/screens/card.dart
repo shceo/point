@@ -27,6 +27,7 @@ class _CardScreenState extends State<CardScreen>
 
   final DatabaseService _databaseService = DatabaseService();
 
+
   late final AnimationController _animController;
 
   @override
@@ -190,10 +191,24 @@ class _CardScreenState extends State<CardScreen>
                           AnimatedBuilder(
                             animation: _animController,
                             builder: (context, child) {
-                              final dy = _animController.value * 300;
+                              final double value = _animController.value;
+
+                              // движение вниз по кривой
+                              final dy = value * 300;
+                              // масштаб с 1.0 до 0.8
+                              final scale = 1.0 - value * 0.2;
+                              // поворот до 15 градусов
+                              final angle = value * 15 * math.pi / 180;
+
                               return Transform.translate(
                                 offset: Offset(0, dy),
-                                child: child,
+                                child: Transform.rotate(
+                                  angle: angle,
+                                  child: Transform.scale(
+                                    scale: scale,
+                                    child: child,
+                                  ),
+                                ),
                               );
                             },
                             child: Transform.rotate(
@@ -223,7 +238,7 @@ class _CardScreenState extends State<CardScreen>
                                 ),
                               ),
                             ),
-                          ),
+                          )
                         ],
                       ),
                     ),
