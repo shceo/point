@@ -12,9 +12,9 @@ import 'package:webview_flutter/webview_flutter.dart';
 
 /// Репозиторий для создания платежа на YooKassa
 class CassaRepo {
-  static const String shopId = '1054000';
+  static const String shopId = '1053999';
   static const String secretKey =
-      'test_wdpD9DOXt65p1Tt02FK9LjGLyjbxz-19mYilgdc8Sj4';
+      'test_iVXfpVrUuUMx8bZxlU78lHmTGIBc6FwITguV15PU6_w';
 
   /// Инициализируем платёж и возвращаем URL для WebView
   static Future<String> createPaymentUrl(double amount) async {
